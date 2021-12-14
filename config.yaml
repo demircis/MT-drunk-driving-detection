@@ -1,2 +1,4 @@
 ---
+data_freq: 30
 full_study: True
+window_size: 150
