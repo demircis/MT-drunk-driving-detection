@@ -1,0 +1,5 @@
+bunch==1.0.1
+flirt==0.0.2
+matplotlib==3.5.1
+pandas==1.3.5
+PyYAML==6.0

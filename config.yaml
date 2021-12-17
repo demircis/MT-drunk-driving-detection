@@ -1,4 +1,6 @@
 ---
 data_freq: 30
 full_study: True
-window_size: 150
+preprocess: False
+window_sizes: [150]
+clf_mode: 'binary'

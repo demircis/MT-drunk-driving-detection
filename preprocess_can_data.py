@@ -1,23 +1,7 @@
 import pandas as pd
-from yaml import load, Loader
 import glob
 import re
 import datetime
-
-from bunch import Bunch
-
-stream = open("config.yaml", 'r')
-config = Bunch(load(stream, Loader=Loader))
-
-CAN_COLUMNS = ['interval', 'steer', 'latpos', 'gas', 'brake', 'clutch', 'Thw', 'velocity', 'acc', 'latvel', 'dtoint', 'indicator',
-               'heading', 'SpeedDif', 'LaneDirection', 'SteerError', 'SteerSpeed', 'Ttc', 'TtcOpp', 'LeftDis',
-               'RightDis', 'AheadDis', 'traflight', 'handbrake', 'engine']
-
-if config.full_study:
-    DATA_FOLDER = "/mnt/adar/drive/study"
-    CAN_COLUMNS = CAN_COLUMNS[:22] + ["ypos", "xpos", "YawRate"] + CAN_COLUMNS[22:]
-else:
-    DATA_FOLDER = "/mnt/adar/drive/pilot"
 
 def filter_can_data_engine_on(can_data, timestamps):
     whole_trip_timestamp = timestamps[timestamps['reason'] == 'trip_start_end_times'].iloc[0]
@@ -38,14 +22,59 @@ def filter_can_data_engine_on(can_data, timestamps):
 
     return can_data_filtered
 
-if __name__ == '__main__':
+def split_signal_in_right_left(df, signal):
+    df[signal + "_right"] = df.loc[df[signal] < 0, signal].abs()
+    df[signal + "_right"] = df[signal + "_right"].fillna(0)
+    df[signal + "_left"] = df.loc[df[signal] > 0, signal]
+    df[signal + "_left"] = df[signal + "_right"].fillna(0)
+
+    return df
+
+
+def do_derivation_of_signals(df, signals, suffix, frequency_hz=None, replace_suffix=None):
+    if frequency_hz is None:
+        time_delta = (df['timestamp'].iloc[1] - df['timestamp'].iloc[0]).total_seconds()
+    else:
+        time_delta = 1 / frequency_hz
+    for signal in signals:
+        if replace_suffix is not None and replace_suffix in signal:
+            signal_new = signal.replace(replace_suffix, "")
+        else:
+            signal_new = signal
+        df[signal_new + suffix] = df[signal].diff() / time_delta
+        df[signal_new + suffix] = df[signal_new + suffix].fillna(0)
+
+    return df
+
+
+def do_preprocessing(full_study, data_freq=30):
+    if glob.glob('out/can_data.parquet'):
+        return
+
+    CAN_COLUMNS = ['interval', 'steer', 'latpos', 'gas', 'brake', 'clutch', 'Thw', 'velocity', 'acc', 'latvel', 'dtoint', 'indicator',
+               'heading', 'SpeedDif', 'LaneDirection', 'SteerError', 'SteerSpeed', 'Ttc', 'TtcOpp', 'LeftDis',
+               'RightDis', 'AheadDis', 'traflight', 'handbrake', 'engine']
+
+    SIGNALS_WITH_POSITIVE_AND_NEGATIVE_VALUES = ["latpos", "steer", "latvel", "SteerSpeed", "SteerError"]
+
+    SIGNALS_SLOPES = ['gas', 'brake']
+    SIGNALS_DERIVE_ACCELERATION = ['latvel', 'SteerSpeed']
+    SIGNALS_DERIVE_JERK = ['latvel_acc', 'SteerSpeed_acc']
+
     data = []
 
-    if config.full_study:
+    if full_study:
+        DATA_FOLDER = "/mnt/adar/drive/study"
+        CAN_COLUMNS = CAN_COLUMNS[:22] + ["ypos", "xpos", "YawRate"] + CAN_COLUMNS[22:]
+        SIGNALS_WITH_POSITIVE_AND_NEGATIVE_VALUES = SIGNALS_WITH_POSITIVE_AND_NEGATIVE_VALUES + ["YawRate"]
+        SIGNALS_DERIVE_ACCELERATION = SIGNALS_DERIVE_ACCELERATION + ["YawRate"]
+        SIGNALS_DERIVE_JERK = SIGNALS_DERIVE_JERK + ["YawRate_acc"]
+
         subject_folders = sorted(glob.glob(DATA_FOLDER + '/*_sober') + glob.glob(DATA_FOLDER + '/*_above') + glob.glob(
             DATA_FOLDER + '/*_below'))
         subject_folders = [f for f in subject_folders if 'audio' not in f]
     else:
+        DATA_FOLDER = "/mnt/adar/drive/pilot"
         subject_folders = sorted(glob.glob(DATA_FOLDER + '/*_drunk') + glob.glob(DATA_FOLDER + '/*_sober'))
 
     subject_re = re.compile('d-([0-9]+)')
@@ -101,6 +130,10 @@ if __name__ == '__main__':
             can_data_filtered.loc[:, "indicator_right"] = (can_data_filtered["indicator"] == 1).astype(int)
             can_data_filtered.loc[:, "indicator_left"] = (can_data_filtered["indicator"] == 2).astype(int)
             can_data_filtered = can_data_filtered.drop(["indicator"], axis=1)
+
+            can_data_filtered = do_derivation_of_signals(can_data_filtered, SIGNALS_SLOPES, '_slope', data_freq)
+            can_data_filtered = do_derivation_of_signals(can_data_filtered, SIGNALS_DERIVE_ACCELERATION, '_acc', data_freq)
+            can_data_filtered = do_derivation_of_signals(can_data_filtered, SIGNALS_DERIVE_JERK, '_jerk', data_freq, '_acc')
 
             data.append(can_data_filtered)
     
