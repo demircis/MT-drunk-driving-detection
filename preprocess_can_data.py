@@ -64,7 +64,7 @@ def do_preprocessing(full_study, data_freq=30):
     data = []
 
     if full_study:
-        DATA_FOLDER = "/mnt/adar/drive/study"
+        DATA_FOLDER = "/adar/drive/study"
         CAN_COLUMNS = CAN_COLUMNS[:22] + ["ypos", "xpos", "YawRate"] + CAN_COLUMNS[22:]
         SIGNALS_WITH_POSITIVE_AND_NEGATIVE_VALUES = SIGNALS_WITH_POSITIVE_AND_NEGATIVE_VALUES + ["YawRate"]
         SIGNALS_DERIVE_ACCELERATION = SIGNALS_DERIVE_ACCELERATION + ["YawRate"]
@@ -74,9 +74,13 @@ def do_preprocessing(full_study, data_freq=30):
             DATA_FOLDER + '/*_below'))
         subject_folders = [f for f in subject_folders if 'audio' not in f]
     else:
-        DATA_FOLDER = "/mnt/adar/drive/pilot"
+        DATA_FOLDER = "/adar/drive/pilot"
         subject_folders = sorted(glob.glob(DATA_FOLDER + '/*_drunk') + glob.glob(DATA_FOLDER + '/*_sober'))
 
+    if not glob.glob(DATA_FOLDER):
+        print('Data folder does not exist')
+        return
+    
     subject_re = re.compile('d-([0-9]+)')
     scenario_re = re.compile(r's\d{2}[abcde]-(\w*)Exp.dat$')
     for subject in subject_folders:
