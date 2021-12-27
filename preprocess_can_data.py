@@ -47,8 +47,8 @@ def do_derivation_of_signals(df, signals, suffix, frequency_hz=None, replace_suf
     return df
 
 
-def do_preprocessing(full_study, data_freq=30):
-    if glob.glob('out/can_data.parquet'):
+def do_preprocessing(full_study, overwrite, data_freq=30):
+    if glob.glob('out/can_data.parquet') and not overwrite:
         return
 
     CAN_COLUMNS = ['interval', 'steer', 'latpos', 'gas', 'brake', 'clutch', 'Thw', 'velocity', 'acc', 'latvel', 'dtoint', 'indicator',
@@ -57,9 +57,9 @@ def do_preprocessing(full_study, data_freq=30):
 
     SIGNALS_WITH_POSITIVE_AND_NEGATIVE_VALUES = ["latpos", "steer", "latvel", "SteerSpeed", "SteerError"]
 
-    SIGNALS_SLOPES = ['gas', 'brake']
-    SIGNALS_DERIVE_ACCELERATION = ['latvel', 'SteerSpeed']
-    SIGNALS_DERIVE_JERK = ['latvel_acc', 'SteerSpeed_acc']
+    SIGNALS_DERIVE_VELOCITY = ['gas', 'brake']
+    SIGNALS_DERIVE_ACCELERATION = ['gas_vel', 'brake_vel', 'latvel', 'SteerSpeed', 'SpeedDif']
+    SIGNALS_DERIVE_JERK = ['gas_acc', 'brake_acc', 'latvel_acc', 'SteerSpeed_acc', 'acc']
 
     data = []
 
@@ -135,8 +135,8 @@ def do_preprocessing(full_study, data_freq=30):
             can_data_filtered.loc[:, "indicator_left"] = (can_data_filtered["indicator"] == 2).astype(int)
             can_data_filtered = can_data_filtered.drop(["indicator"], axis=1)
 
-            can_data_filtered = do_derivation_of_signals(can_data_filtered, SIGNALS_SLOPES, '_slope', data_freq)
-            can_data_filtered = do_derivation_of_signals(can_data_filtered, SIGNALS_DERIVE_ACCELERATION, '_acc', data_freq)
+            can_data_filtered = do_derivation_of_signals(can_data_filtered, SIGNALS_DERIVE_VELOCITY, '_vel', data_freq)
+            can_data_filtered = do_derivation_of_signals(can_data_filtered, SIGNALS_DERIVE_ACCELERATION, '_acc', data_freq, '_vel')
             can_data_filtered = do_derivation_of_signals(can_data_filtered, SIGNALS_DERIVE_JERK, '_jerk', data_freq, '_acc')
 
             data.append(can_data_filtered)
