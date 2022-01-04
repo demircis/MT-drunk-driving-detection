@@ -1,7 +1,9 @@
 ---
 data_freq: 30
 full_study: True
+parse_scenario_info: False
 preprocess: True
 overwrite: True
+generate_features: False
 window_sizes: [5, 30, 90, 150]
 clf_mode: 'binary'

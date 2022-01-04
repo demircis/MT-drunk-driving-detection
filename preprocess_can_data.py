@@ -1,7 +1,10 @@
 import pandas as pd
+import numpy as np
+from scipy.spatial import KDTree
 import glob
 import re
 import datetime
+import math
 
 def filter_can_data_engine_on(can_data, timestamps):
     whole_trip_timestamp = timestamps[timestamps['reason'] == 'trip_start_end_times'].iloc[0]
@@ -31,6 +34,30 @@ def split_signal_in_right_left(df, signal):
     return df
 
 
+def find_closest_segment(lanes_df, target_xpos, target_ypos):
+    # distances = [[math.sqrt((target_xpos - x)**2 + (target_ypos - y)**2) for x, y in zip(np.linspace(start_x, end_x, 10), np.linspace(start_y, end_y, 10))]
+    #     for start_x, start_y, end_x, end_y in zip(lanes_df['StartPos_x_segment'], lanes_df['StartPos_y_segment'], lanes_df['StartPos_x_segment'], lanes_df['EndPos_y_segment'])]
+    # min_per_segment = np.min(distances, axis=1)
+    # min_idx = np.argmin(min_per_segment)
+
+    points = lanes_df[['StartPos_x_segment', 'StartPos_y_segment']].to_numpy()
+    points = np.concatenate((points, lanes_df[['EndPos_x_segment', 'EndPos_y_segment']].to_numpy()))
+    _, min_idx = KDTree(points).query([target_xpos, target_ypos])
+    return lanes_df.iloc[min_idx]['segment_id']
+
+
+def calculate_lane_pos(lanes_df, target_xpos, target_ypos, latpos):
+    segment_id = find_closest_segment(lanes_df.drop_duplicates(subset='segment_id'), target_xpos, target_ypos)
+    lanes_in_segment = lanes_df.loc[lanes_df['segment_id'] == segment_id]
+    lanes_center = []
+    prev_width = 0
+    for _, row in lanes_in_segment.iterrows():
+        lanes_center.append(row['LaneWidth'] / 2.0 + row['RightEdgeLineWidth'] + prev_width)
+        prev_width = row['LaneWidth'] + row['RightEdgeLineWidth']
+    deviation = [latpos - c for c in lanes_center]
+    return min(deviation, key=abs)
+
+
 def do_derivation_of_signals(df, signals, suffix, frequency_hz=None, replace_suffix=None):
     if frequency_hz is None:
         time_delta = (df['timestamp'].iloc[1] - df['timestamp'].iloc[0]).total_seconds()
@@ -41,8 +68,8 @@ def do_derivation_of_signals(df, signals, suffix, frequency_hz=None, replace_suf
             signal_new = signal.replace(replace_suffix, "")
         else:
             signal_new = signal
-        df[signal_new + suffix] = df[signal].diff() / time_delta
-        df[signal_new + suffix] = df[signal_new + suffix].fillna(0)
+        df.loc[:, signal_new + suffix] = df[signal].diff() / time_delta
+        df.loc[:, signal_new + suffix] = df[signal_new + suffix].fillna(0)
 
     return df
 
@@ -83,6 +110,9 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
     
     subject_re = re.compile('d-([0-9]+)')
     scenario_re = re.compile(r's\d{2}[abcde]-(\w*)Exp.dat$')
+
+    lanes_df = pd.read_csv('out/scenario_information.csv')
+
     for subject in subject_folders:
         subject_id_match = subject_re.search(subject)
         if not subject_id_match:
@@ -118,7 +148,7 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
 
             can_data = pd.read_csv(can_file, header=None, index_col=None, names=CAN_COLUMNS, delim_whitespace=True, 
                 skiprows=2, na_values='9999.00')
-            can_data['interval'] = [pd.to_datetime(simulator_timestamp + datetime.timedelta(milliseconds=interval * 1000))
+            can_data.loc[:, 'interval'] = [pd.to_datetime(simulator_timestamp + datetime.timedelta(milliseconds=interval * 1000))
                 .tz_localize('Europe/Zurich') for interval in can_data['interval']]
             can_data.rename(columns={'interval': 'timestamp'}, inplace=True)
 
@@ -133,7 +163,12 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
 
             can_data_filtered.loc[:, "indicator_right"] = (can_data_filtered["indicator"] == 1).astype(int)
             can_data_filtered.loc[:, "indicator_left"] = (can_data_filtered["indicator"] == 2).astype(int)
-            can_data_filtered = can_data_filtered.drop(["indicator"], axis=1)
+            can_data_filtered.drop(["indicator"], axis=1, inplace=True)
+
+            lanes_on_route = lanes_df.loc[(lanes_df['scenario'] == scenario) & (lanes_df['lane_belongs_to_route'] == True)]
+            lanepos = [calculate_lane_pos(lanes_on_route, xpos, ypos, latpos) for xpos, ypos, latpos in 
+                zip(can_data_filtered['xpos'], can_data_filtered['ypos'], can_data_filtered['latpos'])]
+            can_data_filtered.loc[:, 'lane_position'] = lanepos
 
             can_data_filtered = do_derivation_of_signals(can_data_filtered, SIGNALS_DERIVE_VELOCITY, '_vel', data_freq)
             can_data_filtered = do_derivation_of_signals(can_data_filtered, SIGNALS_DERIVE_ACCELERATION, '_acc', data_freq, '_vel')
