@@ -43,6 +43,9 @@ def find_closest_segment(lanes_df, target_xpos, target_ypos):
     points = lanes_df[['StartPos_x_segment', 'StartPos_y_segment']].to_numpy()
     points = np.concatenate((points, lanes_df[['EndPos_x_segment', 'EndPos_y_segment']].to_numpy()))
     _, min_idx = KDTree(points).query([target_xpos, target_ypos])
+    nr_segments = len(lanes_df.index.to_numpy())
+    if min_idx >= nr_segments:
+        min_idx = min_idx - nr_segments
     return lanes_df.iloc[min_idx]['segment_id']
 
 
