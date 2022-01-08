@@ -8,8 +8,8 @@ DRIVER_BEHAVIOR = ['steer', 'gas', 'brake', 'SteerSpeed', 'indicator_left', 'ind
                     'gas_jerk', 'brake_jerk', 'SteerSpeed_jerk', 'SteerError']
 VEHICLE_BEHAVIOR = ['velocity', 'acc', 'acc_jerk', 'latvel', 'YawRate', 'latvel_acc', 'latvel_jerk',
                     'YawRate_acc', 'YawRate_jerk']
-RADAR = ["LaneDirection", "latpos", "Ttc", 'TtcOpp', "Thw"]
-NAVI = ["SpeedDif"]
+RADAR = ['lane_position', "Ttc", 'TtcOpp', "Thw", "Dhw"]
+NAVI = ['dtoint', 'SpeedDif']
 
 SIGNALS = {'driver_behavior': DRIVER_BEHAVIOR, 'vehicle_behavior': VEHICLE_BEHAVIOR, 'radar': RADAR, 'navi': NAVI}
 

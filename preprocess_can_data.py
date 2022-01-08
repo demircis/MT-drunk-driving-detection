@@ -35,17 +35,17 @@ def split_signal_in_right_left(df, signal):
 
 
 def find_closest_segment(lanes_df, target_xpos, target_ypos):
-    # distances = [[math.sqrt((target_xpos - x)**2 + (target_ypos - y)**2) for x, y in zip(np.linspace(start_x, end_x, 10), np.linspace(start_y, end_y, 10))]
-    #     for start_x, start_y, end_x, end_y in zip(lanes_df['StartPos_x_segment'], lanes_df['StartPos_y_segment'], lanes_df['StartPos_x_segment'], lanes_df['EndPos_y_segment'])]
-    # min_per_segment = np.min(distances, axis=1)
-    # min_idx = np.argmin(min_per_segment)
+    distances = [[math.sqrt((target_xpos - x)**2 + (target_ypos - y)**2) for x, y in zip(np.linspace(start_x, end_x, 10), np.linspace(start_y, end_y, 10))]
+        for start_x, start_y, end_x, end_y in zip(lanes_df['StartPos_x_segment'], lanes_df['StartPos_y_segment'], lanes_df['StartPos_x_segment'], lanes_df['EndPos_y_segment'])]
+    min_per_segment = np.min(distances, axis=1)
+    min_idx = np.argmin(min_per_segment)
 
-    points = lanes_df[['StartPos_x_segment', 'StartPos_y_segment']].to_numpy()
-    points = np.concatenate((points, lanes_df[['EndPos_x_segment', 'EndPos_y_segment']].to_numpy()))
-    _, min_idx = KDTree(points).query([target_xpos, target_ypos])
-    nr_segments = len(lanes_df.index.to_numpy())
-    if min_idx >= nr_segments:
-        min_idx = min_idx - nr_segments
+    # points = lanes_df[['StartPos_x_segment', 'StartPos_y_segment']].to_numpy()
+    # points = np.concatenate((points, lanes_df[['EndPos_x_segment', 'EndPos_y_segment']].to_numpy()))
+    # _, min_idx = KDTree(points).query([target_xpos, target_ypos])
+    # nr_segments = len(lanes_df.index.to_numpy())
+    # if min_idx >= nr_segments:
+    #     min_idx = min_idx - nr_segments
     return lanes_df.iloc[min_idx]['segment_id']
 
 
@@ -78,7 +78,7 @@ def do_derivation_of_signals(df, signals, suffix, frequency_hz=None, replace_suf
 
 
 def do_preprocessing(full_study, overwrite, data_freq=30):
-    if glob.glob('out/can_data.parquet') and not overwrite:
+    if glob.glob('out/can_data1.parquet') and not overwrite:
         return
 
     CAN_COLUMNS = ['interval', 'steer', 'latpos', 'gas', 'brake', 'clutch', 'Thw', 'velocity', 'acc', 'latvel', 'dtoint', 'indicator',
@@ -173,6 +173,8 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
                 zip(can_data_filtered['xpos'], can_data_filtered['ypos'], can_data_filtered['latpos'])]
             can_data_filtered.loc[:, 'lane_position'] = lanepos
 
+            can_data_filtered.loc[:, 'Dhw'] = can_data_filtered['Thw'] * can_data_filtered['velocity']
+
             can_data_filtered = do_derivation_of_signals(can_data_filtered, SIGNALS_DERIVE_VELOCITY, '_vel', data_freq)
             can_data_filtered = do_derivation_of_signals(can_data_filtered, SIGNALS_DERIVE_ACCELERATION, '_acc', data_freq, '_vel')
             can_data_filtered = do_derivation_of_signals(can_data_filtered, SIGNALS_DERIVE_JERK, '_jerk', data_freq, '_acc')
@@ -180,4 +182,4 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             data.append(can_data_filtered)
     
     data = pd.concat(data)
-    data.to_parquet("out/can_data.parquet")
+    data.to_parquet("out/can_data1.parquet")
