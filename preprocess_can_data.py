@@ -23,7 +23,7 @@ def filter_can_data_engine_on(can_data, timestamps):
         assert len(can_data_filtered[(can_data_filtered['timestamp']> start_time)
             & (can_data_filtered['timestamp'] < end_time)].index) == 0
 
-    return can_data_filtered
+    return can_data_filtered.copy()
 
 def split_signal_in_right_left(df, signal):
     df[signal + "_right"] = df.loc[df[signal] < 0, signal].abs()
@@ -84,7 +84,7 @@ def do_derivation_of_signals(df, signals, suffix, frequency_hz=None, replace_suf
 
 
 def do_preprocessing(full_study, overwrite, data_freq=30):
-    if glob.glob('out/can_data_debug.parquet') and not overwrite:
+    if glob.glob('out/can_data.parquet') and not overwrite:
         return
 
     CAN_COLUMNS = ['interval', 'steer', 'latpos', 'gas', 'brake', 'clutch', 'Thw', 'velocity', 'acc', 'latvel', 'dtoint', 'indicator',
@@ -191,4 +191,4 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             data.append(can_data_filtered)
     
     data = pd.concat(data)
-    data.to_parquet("out/can_data_debug.parquet")
+    data.to_parquet("out/can_data.parquet")
