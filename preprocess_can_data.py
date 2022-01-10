@@ -57,8 +57,14 @@ def calculate_lane_pos(lanes_df, target_xpos, target_ypos, latpos):
     for _, row in lanes_in_segment.iterrows():
         lanes_center.append(row['LaneWidth'] / 2.0 + row['RightEdgeLineWidth'] + prev_width)
         prev_width = row['LaneWidth'] + row['RightEdgeLineWidth']
-    deviation = [latpos - c for c in lanes_center]
-    return min(deviation, key=abs)
+    deviation = [np.abs(latpos - c) for c in lanes_center]
+    lane_number = np.argmin(deviation)
+    lane_position = None
+    if lane_number == 0:
+        lane_position = latpos
+    else:
+        lane_position = latpos - (lanes_center[lane_number] - lanes_center[0])
+    return segment_id, lane_number, lane_position
 
 
 def do_derivation_of_signals(df, signals, suffix, frequency_hz=None, replace_suffix=None):
@@ -78,7 +84,7 @@ def do_derivation_of_signals(df, signals, suffix, frequency_hz=None, replace_suf
 
 
 def do_preprocessing(full_study, overwrite, data_freq=30):
-    if glob.glob('out/can_data1.parquet') and not overwrite:
+    if glob.glob('out/can_data_debug.parquet') and not overwrite:
         return
 
     CAN_COLUMNS = ['interval', 'steer', 'latpos', 'gas', 'brake', 'clutch', 'Thw', 'velocity', 'acc', 'latvel', 'dtoint', 'indicator',
@@ -169,9 +175,12 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             can_data_filtered.drop(["indicator"], axis=1, inplace=True)
 
             lanes_on_route = lanes_df.loc[(lanes_df['scenario'] == scenario) & (lanes_df['lane_belongs_to_route'] == True)]
-            lanepos = [calculate_lane_pos(lanes_on_route, xpos, ypos, latpos) for xpos, ypos, latpos in 
+            lane_info = [calculate_lane_pos(lanes_on_route, xpos, ypos, latpos) for xpos, ypos, latpos in 
                 zip(can_data_filtered['xpos'], can_data_filtered['ypos'], can_data_filtered['latpos'])]
-            can_data_filtered.loc[:, 'lane_position'] = lanepos
+            lane_info = np.array(lane_info)
+            can_data_filtered.loc[:, 'segment_id'] = lane_info[:, 0]
+            can_data_filtered.loc[:, 'lane_number'] = lane_info[:, 1]
+            can_data_filtered.loc[:, 'lane_position'] = lane_info[:, 2]
 
             can_data_filtered.loc[:, 'Dhw'] = can_data_filtered['Thw'] * can_data_filtered['velocity']
 
@@ -182,4 +191,4 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             data.append(can_data_filtered)
     
     data = pd.concat(data)
-    data.to_parquet("out/can_data1.parquet")
+    data.to_parquet("out/can_data_debug.parquet")
