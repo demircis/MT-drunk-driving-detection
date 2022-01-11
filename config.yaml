@@ -5,5 +5,5 @@ parse_scenario_info: False
 preprocess: True
 overwrite: True
 generate_features: False
-window_sizes: [90, 150]
+window_sizes: [30, 90, 150]
 clf_mode: 'binary'
