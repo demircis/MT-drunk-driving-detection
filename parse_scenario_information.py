@@ -27,7 +27,7 @@ def parse_segment_details(segment_details, road_file_lines, idx, scenario):
     segment_pattern = re.compile('Segment Nr.[\s]*([0-9]+)')
     dlanes_pattern = re.compile('NrDLanes[\s]*([0-9]+)')
     lane_pattern = re.compile('^Lane[\s]*([0-9]+)')
-    position_pattern = re.compile('(StartPos|EndPos)[\s-]+([-0-9]+.[0-9]+)[\s]+([-0-9]+.[0-9]+)')
+    position_pattern = re.compile('(StartPos|EndPos)[\s]+([\-0-9]+.[0-9]+)[\s]+([\-0-9]+.[0-9]+)')
     segment_id = None
     segment_start_pos_x = None
     segment_start_pos_y = None
@@ -63,7 +63,7 @@ def parse_segment_details(segment_details, road_file_lines, idx, scenario):
 def parse_lane_details(lane_details, road_file_lines, idx, scenario):
     dlanes_pattern = re.compile('NrDLanes[\s]*([0-9]+)')
     lane_pattern = re.compile('^Lane[\s]*([0-9]+)')
-    position_pattern = re.compile('(StartPos|EndPos)[\s-]+([-0-9]+.[0-9]+)[\s]+([-0-9]+.[0-9]+)')
+    position_pattern = re.compile('(StartPos|EndPos)[\s]+([\-0-9]+.[0-9]+)[\s]+([\-0-9]+.[0-9]+)')
     lane_width_pattern = re.compile('(LaneWidth|LeftEdgeLineWidth|RightEdgeLineWidth)[\s-]*([0-9]+.[0-9]+)')
     dlanes_match = dlanes_pattern.search(road_file_lines[idx])
     if dlanes_match:
@@ -146,10 +146,5 @@ def parse_scenario_information():
 
     final_df = segment_df.merge(lane_df, on=['scenario', 'lane_id'], suffixes=['_segment', '_lane'])
     final_df = path_df.merge(final_df, on=['scenario', 'segment_id'])
-    final_df['lane_belongs_to_route'] = False
-    for scenario in pd.unique(final_df['scenario']):
-        final_df.loc[final_df["scenario"] == scenario, "lane_belongs_to_route"] =  final_df[final_df["scenario"] == scenario][
-        "path_id"].isin(route_df[route_df["scenario"] == scenario]["path_id"])
-    
-    final_df.merge(route_df, on=['scenario', 'path_id'])
+    final_df = route_df.merge(final_df, on=['scenario', 'path_id'])
     final_df.to_csv('out/scenario_information.csv')

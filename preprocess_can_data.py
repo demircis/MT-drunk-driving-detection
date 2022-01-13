@@ -26,6 +26,7 @@ def filter_can_data_engine_on(can_data, timestamps):
 
     return can_data_filtered.copy()
 
+
 def split_signal_in_right_left(df, signal):
     df[signal + "_right"] = df.loc[df[signal] < 0, signal].abs()
     df[signal + "_right"] = df[signal + "_right"].fillna(0)
@@ -42,7 +43,7 @@ def map_to_digit(segments):
     three = np.array([1, 0, 1, 1, 0, 1, 1])
     four = np.array([0, 1, 1, 1, 0, 1, 0])
     five = np.array([1, 1, 0, 1, 0, 1, 1])
-    six = np.array([1, 1, 0, 1, 1, 1, 0])
+    six = np.array([1, 1, 0, 1, 1, 1, 1])
     seven = np.array([1, 0, 1, 0, 0, 1, 0])
     eight = np.array([1, 1, 1, 1, 1, 1, 1])
     nine = np.array([1, 1, 1, 1, 0, 1, 0])
@@ -69,7 +70,7 @@ def map_to_digit(segments):
         return '9'
 
 
-def get_segments_states(digits):
+def get_segment_states(digits):
     segments_states = []
     for i in range(len(digits)):
         digit = digits[i]
@@ -78,6 +79,10 @@ def get_segments_states(digits):
             continue
         full_contours = np.concatenate(contours)
         x, y, w, h = cv.boundingRect(full_contours)
+        # fix for digit 1 and 3 (bounding box too thin, extend towards left)
+        if w <= 8:
+            x = x - (9 - w)
+            w = 9
         digit_rect = digit[y:y + h, x:x + w]
         (digit_h, digit_w) = digit_rect.shape
         (segment_w, segment_h) = (int(digit_w * 0.25), int(digit_h * 0.15))
@@ -118,7 +123,7 @@ def get_path_and_segment_ids(video, data_timestamps, video_timestamp):
                 _, thresh = cv.threshold(imgray, 127, 255, cv.THRESH_BINARY)
                 digits = np.array_split(thresh, 5, axis=1)
                 path_id = ''
-                for segment_state in get_segments_states(digits):
+                for segment_state in get_segment_states(digits):
                     path_id += map_to_digit(segment_state)
                 path_id = int(path_id)
                 path_ids.append(path_id)
@@ -128,7 +133,7 @@ def get_path_and_segment_ids(video, data_timestamps, video_timestamp):
                 _, thresh = cv.threshold(imgray, 127, 255, cv.THRESH_BINARY)
                 digits = np.array_split(thresh, 5, axis=1)
                 segment_id = ''
-                for segment_state in get_segments_states(digits):
+                for segment_state in get_segment_states(digits):
                     segment_id += map_to_digit(segment_state)
                 segment_id = int(segment_id)
                 segment_ids.append(segment_id)
@@ -136,7 +141,7 @@ def get_path_and_segment_ids(video, data_timestamps, video_timestamp):
                 print('could not get frame')
         else:
             print('could not set video timestamp')
-    
+
     return np.array(path_ids), np.array(segment_ids)
 
 
@@ -282,7 +287,7 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             can_data_filtered.loc[:, 'path_id'] = path_ids
             can_data_filtered.loc[:, 'segment_id'] = segment_ids
 
-            lanes_on_route = lanes_df.loc[(lanes_df['scenario'] == scenario) & (lanes_df['lane_belongs_to_route'] == True)]
+            lanes_on_route = lanes_df.loc[lanes_df['scenario'] == scenario]
             lane_info = [calculate_lane_pos(lanes_on_route, segment_id, latpos)
                     for segment_id, latpos in zip(can_data_filtered['segment_id'], can_data_filtered['latpos'])]
             lane_info = np.array(lane_info)
