@@ -5,6 +5,7 @@ import re
 import datetime
 import pytz
 import cv2 as cv
+from ffmpeg_videostream import VideoStream
 
 
 def filter_can_data_engine_on(can_data, timestamps):
@@ -108,39 +109,36 @@ def get_segment_states(digits):
     return segments_states
 
 
+def extract_id(img):
+    imgray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    _, thresh = cv.threshold(imgray, 127, 255, cv.THRESH_BINARY)
+    digits = np.array_split(thresh, 5, axis=1)
+    extracted_id = ''
+    for segment_state in get_segment_states(digits):
+        extracted_id += map_to_digit(segment_state)
+    extracted_id = int(extracted_id)
+    return extracted_id
+
+
 def get_path_and_segment_ids(video, data_timestamps, video_timestamp):
-    can_data_timestamps_ms = (data_timestamps - video_timestamp) / datetime.timedelta(milliseconds=1)
-    cap = cv.VideoCapture(video)
+    can_data_timestamps_s = (data_timestamps - video_timestamp) / datetime.timedelta(seconds=1)
+    stream = VideoStream(video)
     path_ids = []
     segment_ids = []
-    for timestamp_ms in can_data_timestamps_ms:
-        is_set = cap.set(cv.CAP_PROP_POS_MSEC, timestamp_ms)
-        if is_set:
-            success, frame = cap.read()
-            if success:
-                path_img = frame[1723:1743, 1022:1098, :]
-                imgray = cv.cvtColor(path_img, cv.COLOR_BGR2GRAY)
-                _, thresh = cv.threshold(imgray, 127, 255, cv.THRESH_BINARY)
-                digits = np.array_split(thresh, 5, axis=1)
-                path_id = ''
-                for segment_state in get_segment_states(digits):
-                    path_id += map_to_digit(segment_state)
-                path_id = int(path_id)
-                path_ids.append(path_id)
+    for timestamp_s in can_data_timestamps_s:
+        stream.config(start_hms=timestamp_s)
+        stream.open_stream()
+        eof, out = stream.read()
+        arr = np.frombuffer(out, np.uint8).reshape(int(stream.shape()[1] * 1.5), stream.shape()[0])
+        frame = cv.cvtColor(arr, cv.COLOR_YUV2BGR_I420)
+        if not eof:
+            path_img = frame[1723:1743, 1022:1098, :]
+            path_ids.append(extract_id(path_img))
 
-                segment_img = frame[1752:1772, 1022:1098, :]
-                imgray = cv.cvtColor(segment_img, cv.COLOR_BGR2GRAY)
-                _, thresh = cv.threshold(imgray, 127, 255, cv.THRESH_BINARY)
-                digits = np.array_split(thresh, 5, axis=1)
-                segment_id = ''
-                for segment_state in get_segment_states(digits):
-                    segment_id += map_to_digit(segment_state)
-                segment_id = int(segment_id)
-                segment_ids.append(segment_id)
-            else:
-                print('could not get frame')
+            segment_img = frame[1752:1772, 1022:1098, :]
+            segment_ids.append(extract_id(segment_img))
         else:
-            print('could not set video timestamp')
+            print('end of file reached')
 
     return np.array(path_ids), np.array(segment_ids)
 
