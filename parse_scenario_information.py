@@ -146,5 +146,5 @@ def parse_scenario_information():
 
     final_df = segment_df.merge(lane_df, on=['scenario', 'lane_id'], suffixes=['_segment', '_lane'])
     final_df = path_df.merge(final_df, on=['scenario', 'segment_id'])
-    final_df = route_df.merge(final_df, on=['scenario', 'path_id'])
+    # final_df = route_df.merge(final_df, on=['scenario', 'path_id'])
     final_df.to_csv('out/scenario_information.csv')

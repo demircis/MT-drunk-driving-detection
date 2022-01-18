@@ -5,7 +5,8 @@ import re
 import datetime
 import pytz
 import cv2 as cv
-from ffmpeg_videostream import VideoStream
+import ffmpeg
+import os
 
 
 def filter_can_data_engine_on(can_data, timestamps):
@@ -69,12 +70,13 @@ def map_to_digit(segments):
         return '8'
     elif np.array_equal(segments, nine):
         return '9'
+    else:
+        return None
 
 
 def get_segment_states(digits):
     segments_states = []
-    for i in range(len(digits)):
-        digit = digits[i]
+    for digit in digits:
         contours, _ = cv.findContours(digit, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
         if len(contours) == 0:
             continue
@@ -102,6 +104,9 @@ def get_segment_states(digits):
             segment = digit_rect[yA:yB, xA:xB]
             total = cv.countNonZero(segment)
             area = (xB - xA) * (yB - yA)
+            if area == 0:
+                segment_state = np.array([0] * len(segments))
+                break
             if total / float(area) > 0.5:
                 segment_state[j]= 1
         segments_states.append(segment_state)
@@ -120,31 +125,93 @@ def extract_id(img):
     return extracted_id
 
 
-def get_path_and_segment_ids(video, data_timestamps, video_timestamp):
-    can_data_timestamps_s = (data_timestamps - video_timestamp) / datetime.timedelta(seconds=1)
-    stream = VideoStream(video)
-    path_ids = []
-    segment_ids = []
-    for timestamp_s in can_data_timestamps_s:
-        stream.config(start_hms=timestamp_s)
-        stream.open_stream()
-        eof, out = stream.read()
-        arr = np.frombuffer(out, np.uint8).reshape(int(stream.shape()[1] * 1.5), stream.shape()[0])
-        frame = cv.cvtColor(arr, cv.COLOR_YUV2BGR_I420)
-        if not eof:
-            path_img = frame[1723:1743, 1022:1098, :]
-            path_ids.append(extract_id(path_img))
-
-            segment_img = frame[1752:1772, 1022:1098, :]
-            segment_ids.append(extract_id(segment_img))
+def get_ids_for_indices(path_ids, segment_ids, cropped_video, timestamps, indices):
+    cap = cv.VideoCapture(cropped_video)
+    for ind, timestamp_ms in zip(indices, timestamps[indices]):
+        is_set = cap.set(cv.CAP_PROP_POS_MSEC, timestamp_ms)
+        success, frame = cap.read()
+        if is_set and success:
+            path_img = frame[:21, :, :]
+            segment_img = frame[29:, :, :]
+            try:
+                path_ids[ind] = extract_id(path_img)
+                segment_ids[ind] = extract_id(segment_img)
+            except:
+                f = open('out/error_digits.txt', 'a')
+                f.writelines(['video: {}, timestamp (ms): {}, index: {}'.format(cropped_video, timestamp_ms, ind)])
+                f.close()
         else:
-            print('end of file reached')
+            print('could not get frame at timestamp')
+            break
+    
+    cap.release()
+    return path_ids, segment_ids
 
-    return np.array(path_ids), np.array(segment_ids)
+
+def crop_video(video):
+    (
+    ffmpeg
+    .input(video)
+    .crop(1022, 1723, 76, 50)
+    .output(video[:-4] + '_cropped.flv', pix_fmt='rgb24', vcodec='libx264', acodec='copy', preset='ultrafast')
+    .run()
+    )
+
+
+def get_path_and_segment_ids(video, data_timestamps, video_timestamp, data_freq):
+    can_data_timestamps_ms = ((data_timestamps - video_timestamp) / datetime.timedelta(milliseconds=1)).to_numpy()
+    nr_timestamps = len(can_data_timestamps_ms)
+    path_ids = np.array([None] * nr_timestamps)
+    segment_ids = np.array([None] * nr_timestamps)
+
+    sampling_indices = np.arange(0, nr_timestamps, data_freq * 5)
+    last_index = nr_timestamps-1
+    if sampling_indices[-1] != last_index:
+        sampling_indices = np.append(sampling_indices, last_index)
+
+    cropped_video = video[:-4] + '_cropped.flv'
+    assert(cropped_video != video)
+
+    if not os.path.exists(cropped_video):
+        crop_video(video)
+    
+    path_ids, segment_ids = get_ids_for_indices(path_ids, segment_ids, cropped_video, can_data_timestamps_ms, sampling_indices)
+    
+    repeat = 0
+    prev_none = -1
+    while len(segment_ids[segment_ids == None]) != 0:
+        new_indices = []
+        for i in range(len(sampling_indices)-1):
+            left = sampling_indices[i]
+            right = sampling_indices[i+1]
+            if path_ids[left] == path_ids[right]:
+                path_ids[left:right] = path_ids[left]
+
+            if (segment_ids[left] == segment_ids[right]) and not (segment_ids[left] == None and segment_ids[right] == None):
+                segment_ids[left:right] = segment_ids[left] if segment_ids[left] != None else segment_ids[right]
+            else:
+                new_indices.append(left+(right-left)//2)
+
+        new_indices = np.array(new_indices)
+        sampling_indices = np.concatenate((sampling_indices, new_indices))
+        sampling_indices = np.sort(sampling_indices)
+        path_ids, segment_ids = get_ids_for_indices(path_ids, segment_ids, cropped_video, can_data_timestamps_ms, new_indices)
+
+        if len(segment_ids[segment_ids == None]) == prev_none:
+            repeat += 1
+            sampling_indices = sampling_indices[segment_ids[sampling_indices] != None]
+        prev_none = len(segment_ids[segment_ids == None])
+        
+        if repeat == 3:
+            break
+
+    return path_ids, segment_ids
 
 
 def calculate_lane_pos(lanes_df, segment_id, latpos):
     lanes_in_segment = lanes_df.loc[lanes_df['segment_id'] == segment_id]
+    if lanes_in_segment.empty:
+        return -1, np.nan
     lanes_center = []
     prev_width = 0
     for _, row in lanes_in_segment.iterrows():
@@ -179,6 +246,9 @@ def do_derivation_of_signals(df, signals, suffix, frequency_hz=None, replace_suf
 def do_preprocessing(full_study, overwrite, data_freq=30):
     if glob.glob('out/can_data.parquet') and not overwrite:
         return
+
+    if os.path.exists('out/error_digits.txt'):
+        os.remove('out/error_digits.txt')
 
     CAN_COLUMNS = ['interval', 'steer', 'latpos', 'gas', 'brake', 'clutch', 'Thw', 'velocity', 'acc', 'latvel', 'dtoint', 'indicator',
                'heading', 'SpeedDif', 'LaneDirection', 'SteerError', 'SteerSpeed', 'Ttc', 'TtcOpp', 'LeftDis',
@@ -235,7 +305,7 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
         timestamps = pd.read_csv(timestamp_file[0], sep=',', index_col=0, skiprows=0,
                             parse_dates=['start_time', 'end_time'])
 
-        video = glob.glob(subject + '/obs-videos/*.flv')[0]
+        video = glob.glob(subject + '/obs-videos/*[!_cropped].flv')[0]
         match = timestamp_re.search(video.split('/')[-1])
         if match:
             year = int(match.group(1))
@@ -281,7 +351,7 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             can_data_filtered.loc[:, "indicator_left"] = (can_data_filtered["indicator"] == 2).astype(int)
             can_data_filtered.drop(["indicator"], axis=1, inplace=True)
 
-            path_ids, segment_ids = get_path_and_segment_ids(video, can_data_filtered['timestamp'], video_timestamp)
+            path_ids, segment_ids = get_path_and_segment_ids(video, can_data_filtered['timestamp'], video_timestamp, data_freq)
             can_data_filtered.loc[:, 'path_id'] = path_ids
             can_data_filtered.loc[:, 'segment_id'] = segment_ids
 
