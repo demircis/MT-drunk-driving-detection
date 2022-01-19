@@ -82,22 +82,22 @@ def get_segment_states(digits):
             continue
         full_contours = np.concatenate(contours)
         x, y, w, h = cv.boundingRect(full_contours)
-        # fix for digit 1 and 3 (bounding box too thin, extend towards left)
-        if w <= 8:
-            x = x - (9 - w)
-            w = 9
+        # extend bounding box to the left (fix for certain digits)
+        standard_w = 10
+        if w < 10:
+            x = x - (standard_w - w)
+            w = standard_w
         digit_rect = digit[y:y + h, x:x + w]
-        (digit_h, digit_w) = digit_rect.shape
-        (segment_w, segment_h) = (int(digit_w * 0.25), int(digit_h * 0.15))
-        segment_h_center = int(digit_h * 0.10)
+        (segment_w, segment_h) = (3, 3)
+        segment_h_center = 2
         segments = [
-            ((0, 0), (w, segment_h)),	# top
-            ((0, 0), (segment_w, h // 2)),	# top-left
-            ((w - segment_w, 0), (w, h // 2)),	# top-right
-            ((0, (h // 2) - segment_h_center) , (w, (h // 2) + segment_h_center)), # center
-            ((0, h // 2), (segment_w, h)),	# bottom-left
-            ((w - segment_w, h // 2), (w, h)),	# bottom-right
-            ((0, h - segment_h), (w, h))	# bottom
+            ((1, 0), (w-1, segment_h)),	# top
+            ((0, 1), (segment_w, h // 2)),	# top-left
+            ((w - segment_w, 1), (w, h // 2)),	# top-right
+            ((1, (h // 2) - segment_h_center) , (w-1, (h // 2) + segment_h_center)), # center
+            ((0, h // 2), (segment_w, h-1)),	# bottom-left
+            ((w - segment_w, h // 2), (w, h-1)),	# bottom-right
+            ((1, h - segment_h), (w-1, h))	# bottom
         ]
         segment_state = np.array([0] * len(segments))
         for j, ((xA, yA), (xB, yB)) in enumerate(segments):
@@ -107,7 +107,7 @@ def get_segment_states(digits):
             if area == 0:
                 segment_state = np.array([0] * len(segments))
                 break
-            if total / float(area) > 0.5:
+            if total / float(area) >= 0.5:
                 segment_state[j]= 1
         segments_states.append(segment_state)
     
@@ -115,7 +115,10 @@ def get_segment_states(digits):
 
 
 def extract_id(img):
-    imgray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+    imhsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
+    mask = cv.inRange(imhsv, (0, 50, 0), (179, 255, 255))
+    img_no_artifacts = cv.bitwise_and(img, img, mask=mask)
+    imgray = cv.cvtColor(img_no_artifacts, cv.COLOR_BGR2GRAY)
     _, thresh = cv.threshold(imgray, 127, 255, cv.THRESH_BINARY)
     digits = np.array_split(thresh, 5, axis=1)
     extracted_id = ''
@@ -136,9 +139,14 @@ def get_ids_for_indices(path_ids, segment_ids, cropped_video, timestamps, indice
             try:
                 path_ids[ind] = extract_id(path_img)
                 segment_ids[ind] = extract_id(segment_img)
-            except:
+            except TypeError:
+                subject_folder = cropped_video.split('/')[4]
+                if not os.path.exists('out/{}'.format(subject_folder)):
+                    os.makedirs('out/{}'.format(subject_folder))
+                cv.imwrite('out/{}/error_path_{}.jpg'.format(subject_folder, timestamp_ms), path_img)
+                cv.imwrite('out/{}/error_segment_{}.jpg'.format(subject_folder, timestamp_ms), segment_img)
                 f = open('out/error_digits.txt', 'a')
-                f.writelines(['video: {}, timestamp (ms): {}, index: {}'.format(cropped_video, timestamp_ms, ind)])
+                f.write('video: {}, timestamp (ms): {}, index: {}\n'.format(cropped_video, timestamp_ms, ind))
                 f.close()
         else:
             print('could not get frame at timestamp')
@@ -305,7 +313,8 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
         timestamps = pd.read_csv(timestamp_file[0], sep=',', index_col=0, skiprows=0,
                             parse_dates=['start_time', 'end_time'])
 
-        video = glob.glob(subject + '/obs-videos/*[!_cropped].flv')[0]
+        videos = glob.glob(subject + '/obs-videos/*[!_cropped].flv')
+        video = videos[1] if (subject_id == '034' and state == 'sober') else videos[0]
         match = timestamp_re.search(video.split('/')[-1])
         if match:
             year = int(match.group(1))
