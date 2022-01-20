@@ -83,8 +83,8 @@ def get_segment_states(digits):
         full_contours = np.concatenate(contours)
         x, y, w, h = cv.boundingRect(full_contours)
         # extend bounding box to the left (fix for certain digits)
-        standard_w = 10
-        if w < 10:
+        standard_w = 9
+        if w < standard_w:
             x = x - (standard_w - w)
             w = standard_w
         digit_rect = digit[y:y + h, x:x + w]
@@ -124,18 +124,20 @@ def extract_id(img):
     extracted_id = ''
     for segment_state in get_segment_states(digits):
         extracted_id += map_to_digit(segment_state)
-    extracted_id = int(extracted_id)
+    extracted_id = int(extracted_id) if extracted_id != '' else None
     return extracted_id
 
 
-def get_ids_for_indices(path_ids, segment_ids, cropped_video, timestamps, indices):
+def get_ids_for_indices(path_ids, segment_ids, cropped_video, dimensions, timestamps, indices):
     cap = cv.VideoCapture(cropped_video)
     for ind, timestamp_ms in zip(indices, timestamps[indices]):
         is_set = cap.set(cv.CAP_PROP_POS_MSEC, timestamp_ms)
         success, frame = cap.read()
         if is_set and success:
-            path_img = frame[:21, :, :]
-            segment_img = frame[29:, :, :]
+            end = dimensions['path_frame']
+            start = dimensions['segment_frame']
+            path_img = frame[:end, :, :]
+            segment_img = frame[start:, :, :]
             try:
                 path_ids[ind] = extract_id(path_img)
                 segment_ids[ind] = extract_id(segment_img)
@@ -156,17 +158,17 @@ def get_ids_for_indices(path_ids, segment_ids, cropped_video, timestamps, indice
     return path_ids, segment_ids
 
 
-def crop_video(video):
+def crop_video(video, crop_dimensions):
     (
     ffmpeg
     .input(video)
-    .crop(1022, 1723, 76, 50)
-    .output(video[:-4] + '_cropped.flv', pix_fmt='rgb24', vcodec='libx264', acodec='copy', preset='ultrafast')
+    .crop(crop_dimensions['x'], crop_dimensions['y'], crop_dimensions['height'], crop_dimensions['width'])
+    .output(video[:-4] + '_cropped.flv', vcodec='libx264', acodec='copy', preset='ultrafast')
     .run()
     )
 
 
-def get_path_and_segment_ids(video, data_timestamps, video_timestamp, data_freq):
+def get_path_and_segment_ids(video, dimensions, data_timestamps, video_timestamp, data_freq):
     can_data_timestamps_ms = ((data_timestamps - video_timestamp) / datetime.timedelta(milliseconds=1)).to_numpy()
     nr_timestamps = len(can_data_timestamps_ms)
     path_ids = np.array([None] * nr_timestamps)
@@ -181,9 +183,9 @@ def get_path_and_segment_ids(video, data_timestamps, video_timestamp, data_freq)
     assert(cropped_video != video)
 
     if not os.path.exists(cropped_video):
-        crop_video(video)
+        crop_video(video, dimensions)
     
-    path_ids, segment_ids = get_ids_for_indices(path_ids, segment_ids, cropped_video, can_data_timestamps_ms, sampling_indices)
+    path_ids, segment_ids = get_ids_for_indices(path_ids, segment_ids, cropped_video, dimensions, can_data_timestamps_ms, sampling_indices)
     
     repeat = 0
     prev_none = -1
@@ -203,7 +205,7 @@ def get_path_and_segment_ids(video, data_timestamps, video_timestamp, data_freq)
         new_indices = np.array(new_indices)
         sampling_indices = np.concatenate((sampling_indices, new_indices))
         sampling_indices = np.sort(sampling_indices)
-        path_ids, segment_ids = get_ids_for_indices(path_ids, segment_ids, cropped_video, can_data_timestamps_ms, new_indices)
+        path_ids, segment_ids = get_ids_for_indices(path_ids, segment_ids, cropped_video, dimensions, can_data_timestamps_ms, new_indices)
 
         if len(segment_ids[segment_ids == None]) == prev_none:
             repeat += 1
@@ -309,6 +311,22 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
         else:
             state = "sober"
 
+        dimensions = dict()
+        if not (subject_id == '018' and state == 'sober'):
+            dimensions['x'] = 1022
+            dimensions['y'] = 1723
+            dimensions['height'] = 76
+            dimensions['width'] = 50
+            dimensions['path_frame'] = 21
+            dimensions['segment_frame'] = 29
+        else:
+            dimensions['x'] = 2624
+            dimensions['y'] = 1696
+            dimensions['height'] = 52
+            dimensions['width'] = 35
+            dimensions['path_frame'] = 15
+            dimensions['segment_frame'] = 20
+
         timestamp_file = glob.glob(subject + '/timestamps.csv')
         timestamps = pd.read_csv(timestamp_file[0], sep=',', index_col=0, skiprows=0,
                             parse_dates=['start_time', 'end_time'])
@@ -360,7 +378,7 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             can_data_filtered.loc[:, "indicator_left"] = (can_data_filtered["indicator"] == 2).astype(int)
             can_data_filtered.drop(["indicator"], axis=1, inplace=True)
 
-            path_ids, segment_ids = get_path_and_segment_ids(video, can_data_filtered['timestamp'], video_timestamp, data_freq)
+            path_ids, segment_ids = get_path_and_segment_ids(video, dimensions, can_data_filtered['timestamp'], video_timestamp, data_freq)
             can_data_filtered.loc[:, 'path_id'] = path_ids
             can_data_filtered.loc[:, 'segment_id'] = segment_ids
 
