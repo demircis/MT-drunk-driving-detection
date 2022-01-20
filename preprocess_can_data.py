@@ -74,7 +74,7 @@ def map_to_digit(segments):
         return None
 
 
-def get_segment_states(digits):
+def get_segment_states(digits, smaller_dimensions):
     segments_states = []
     for digit in digits:
         contours, _ = cv.findContours(digit, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
@@ -83,13 +83,13 @@ def get_segment_states(digits):
         full_contours = np.concatenate(contours)
         x, y, w, h = cv.boundingRect(full_contours)
         # extend bounding box to the left (fix for certain digits)
-        standard_w = 9
+        standard_w = 6 if smaller_dimensions else 9 
         if w < standard_w:
             x = x - (standard_w - w)
             w = standard_w
         digit_rect = digit[y:y + h, x:x + w]
-        (segment_w, segment_h) = (3, 3)
-        segment_h_center = 2
+        (segment_w, segment_h) = (1, 1) if smaller_dimensions else (3, 3)
+        segment_h_center = 1 if smaller_dimensions else 2
         segments = [
             ((1, 0), (w-1, segment_h)),	# top
             ((0, 1), (segment_w, h // 2)),	# top-left
@@ -114,7 +114,7 @@ def get_segment_states(digits):
     return segments_states
 
 
-def extract_id(img):
+def extract_id(img, smaller_dimensions):
     imhsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
     mask = cv.inRange(imhsv, (0, 50, 0), (179, 255, 255))
     img_no_artifacts = cv.bitwise_and(img, img, mask=mask)
@@ -122,7 +122,7 @@ def extract_id(img):
     _, thresh = cv.threshold(imgray, 127, 255, cv.THRESH_BINARY)
     digits = np.array_split(thresh, 5, axis=1)
     extracted_id = ''
-    for segment_state in get_segment_states(digits):
+    for segment_state in get_segment_states(digits, smaller_dimensions):
         extracted_id += map_to_digit(segment_state)
     extracted_id = int(extracted_id) if extracted_id != '' else None
     return extracted_id
@@ -139,8 +139,8 @@ def get_ids_for_indices(path_ids, segment_ids, cropped_video, dimensions, timest
             path_img = frame[:end, :, :]
             segment_img = frame[start:, :, :]
             try:
-                path_ids[ind] = extract_id(path_img)
-                segment_ids[ind] = extract_id(segment_img)
+                path_ids[ind] = extract_id(path_img, True) if (end == 15 and start == 20) else extract_id(path_img, False)
+                segment_ids[ind] = extract_id(segment_img, True) if (end == 15 and start == 20) else extract_id(segment_img, False)
             except TypeError:
                 subject_folder = cropped_video.split('/')[4]
                 if not os.path.exists('out/{}'.format(subject_folder)):
@@ -210,9 +210,11 @@ def get_path_and_segment_ids(video, dimensions, data_timestamps, video_timestamp
         if len(segment_ids[segment_ids == None]) == prev_none:
             repeat += 1
             sampling_indices = sampling_indices[segment_ids[sampling_indices] != None]
+        elif len(segment_ids[segment_ids == None]) > prev_none:
+            break
         prev_none = len(segment_ids[segment_ids == None])
-        
-        if repeat == 3:
+
+        if repeat == 2:
             break
 
     return path_ids, segment_ids
