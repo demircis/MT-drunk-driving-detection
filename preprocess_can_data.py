@@ -7,6 +7,7 @@ import pytz
 import cv2 as cv
 import ffmpeg
 import os
+from scipy.spatial import KDTree
 
 
 def filter_can_data_engine_on(can_data, timestamps):
@@ -22,7 +23,7 @@ def filter_can_data_engine_on(can_data, timestamps):
     for start_time, end_time in engine_in_trip_off_timestamps[['start_time', 'end_time']].to_numpy():
         can_data_filtered = can_data_filtered[(can_data_filtered['timestamp'] < start_time) |
             (can_data_filtered['timestamp'] > end_time)]
-    
+
         assert len(can_data_filtered[(can_data_filtered['timestamp']> start_time)
             & (can_data_filtered['timestamp'] < end_time)].index) == 0
 
@@ -83,12 +84,12 @@ def get_segment_states(digits, smaller_dimensions):
         full_contours = np.concatenate(contours)
         x, y, w, h = cv.boundingRect(full_contours)
         # extend bounding box to the left (fix for certain digits)
-        standard_w = 6 if smaller_dimensions else 9 
+        standard_w = 6 if smaller_dimensions else 9
         if w < standard_w:
             x = x - (standard_w - w)
             w = standard_w
         digit_rect = digit[y:y + h, x:x + w]
-        (segment_w, segment_h) = (1, 1) if smaller_dimensions else (3, 3)
+        (segment_w, segment_h) = (2, 2) if smaller_dimensions else (3, 3)
         segment_h_center = 1 if smaller_dimensions else 2
         segments = [
             ((1, 0), (w-1, segment_h)),	# top
@@ -110,7 +111,7 @@ def get_segment_states(digits, smaller_dimensions):
             if total / float(area) >= 0.5:
                 segment_state[j]= 1
         segments_states.append(segment_state)
-    
+
     return segments_states
 
 
@@ -119,7 +120,7 @@ def extract_id(img, smaller_dimensions):
     mask = cv.inRange(imhsv, (0, 50, 0), (179, 255, 255))
     img_no_artifacts = cv.bitwise_and(img, img, mask=mask)
     imgray = cv.cvtColor(img_no_artifacts, cv.COLOR_BGR2GRAY)
-    _, thresh = cv.threshold(imgray, 127, 255, cv.THRESH_BINARY)
+    _, thresh = cv.threshold(imgray, 85, 255, cv.THRESH_BINARY) if smaller_dimensions else cv.threshold(imgray, 115, 255, cv.THRESH_BINARY)
     digits = np.array_split(thresh, 5, axis=1)
     extracted_id = ''
     for segment_state in get_segment_states(digits, smaller_dimensions):
@@ -153,7 +154,7 @@ def get_ids_for_indices(path_ids, segment_ids, cropped_video, dimensions, timest
         else:
             print('could not get frame at timestamp')
             break
-    
+
     cap.release()
     return path_ids, segment_ids
 
@@ -184,10 +185,9 @@ def get_path_and_segment_ids(video, dimensions, data_timestamps, video_timestamp
 
     if not os.path.exists(cropped_video):
         crop_video(video, dimensions)
-    
+
     path_ids, segment_ids = get_ids_for_indices(path_ids, segment_ids, cropped_video, dimensions, can_data_timestamps_ms, sampling_indices)
-    
-    repeat = 0
+
     prev_none = -1
     while len(segment_ids[segment_ids == None]) != 0:
         new_indices = []
@@ -197,8 +197,8 @@ def get_path_and_segment_ids(video, dimensions, data_timestamps, video_timestamp
             if path_ids[left] == path_ids[right]:
                 path_ids[left:right] = path_ids[left]
 
-            if (segment_ids[left] == segment_ids[right]) and not (segment_ids[left] == None and segment_ids[right] == None):
-                segment_ids[left:right] = segment_ids[left] if segment_ids[left] != None else segment_ids[right]
+            if segment_ids[left] == segment_ids[right]:
+                segment_ids[left:right] = segment_ids[left]
             else:
                 new_indices.append(left+(right-left)//2)
 
@@ -206,18 +206,28 @@ def get_path_and_segment_ids(video, dimensions, data_timestamps, video_timestamp
         sampling_indices = np.concatenate((sampling_indices, new_indices))
         sampling_indices = np.sort(sampling_indices)
         path_ids, segment_ids = get_ids_for_indices(path_ids, segment_ids, cropped_video, dimensions, can_data_timestamps_ms, new_indices)
+        sampling_indices = sampling_indices[segment_ids[sampling_indices] != None]
 
         if len(segment_ids[segment_ids == None]) == prev_none:
-            repeat += 1
-            sampling_indices = sampling_indices[segment_ids[sampling_indices] != None]
-        elif len(segment_ids[segment_ids == None]) > prev_none:
             break
         prev_none = len(segment_ids[segment_ids == None])
 
-        if repeat == 2:
-            break
-
     return path_ids, segment_ids
+
+
+def find_closest_segment(lanes_df, target_xpos, target_ypos):
+    # distances = [[math.sqrt((target_xpos - x)**2 + (target_ypos - y)**2) for x, y in zip(np.linspace(start_x, end_x, 10), np.linspace(start_y, end_y, 10))]
+    #     for start_x, start_y, end_x, end_y in zip(lanes_df['StartPos_x_segment'], lanes_df['StartPos_y_segment'], lanes_df['StartPos_x_segment'], lanes_df['EndPos_y_segment'])]
+    # min_per_segment = np.min(distances, axis=1)
+    # min_idx = np.argmin(min_per_segment)
+
+    points = lanes_df[['StartPos_x_segment', 'StartPos_y_segment']].to_numpy()
+    points = np.concatenate((points, lanes_df[['EndPos_x_segment', 'EndPos_y_segment']].to_numpy()))
+    _, min_idx = KDTree(points).query([target_xpos, target_ypos])
+    nr_segments = len(lanes_df.index.to_numpy())
+    if min_idx >= nr_segments:
+        min_idx = min_idx - nr_segments
+    return lanes_df.iloc[min_idx]['segment_id']
 
 
 def calculate_lane_pos(lanes_df, segment_id, latpos):
@@ -291,7 +301,7 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
     if not glob.glob(DATA_FOLDER):
         print('Data folder does not exist')
         return
-    
+
     subject_re = re.compile('d-([0-9]+)')
     scenario_re = re.compile(r's\d{2}[abcde]-(\w*)Exp.dat$')
     timestamp_re = re.compile(r'(\d{4})-(\d{2})-(\d{2})--(\d{2})-(\d{2})-(\d{2}).flv')
@@ -333,8 +343,13 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
         timestamps = pd.read_csv(timestamp_file[0], sep=',', index_col=0, skiprows=0,
                             parse_dates=['start_time', 'end_time'])
 
-        videos = glob.glob(subject + '/obs-videos/*[!_cropped].flv')
-        video = videos[1] if (subject_id == '034' and state == 'sober') else videos[0]
+        videos = sorted(glob.glob(subject + '/obs-videos/*[!_cropped].flv'))
+        video = None
+        if subject_id == '034' and state == 'sober':
+            video = videos[1]
+        else:
+            video = videos[0]
+
         match = timestamp_re.search(video.split('/')[-1])
         if match:
             year = int(match.group(1))
@@ -346,7 +361,7 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             video_timestamp = datetime.datetime(year, month, day, hour, minute, second)
             tz = pytz.timezone('Europe/Zurich')
             video_timestamp = tz.localize(video_timestamp)
-        
+
         for can_file in sorted(glob.glob(subject + '/simulator/*.dat')):
             scenario_re_match = scenario_re.search(can_file)
 
@@ -354,14 +369,18 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
                 continue
             scenario = scenario_re_match.group(1).lower()
 
+            distance_based = False
+            if (subject_id == '024' and state == 'below') or (subject_id == '005' and state == 'above' and scenario == 'rural'):
+                distance_based = True
+
             print('subject id: {}, state: {}, scenario: {}'.format(subject_id, state, scenario))
-        
+
             with open(can_file) as f:
                 line = f.readline().replace('\n', '')
                 line = line.replace('.   ', '.000').replace('.  ', '.00').replace('. ', '.0')
                 simulator_timestamp = datetime.datetime.strptime(line, '%Y-%m-%d %H:%M:%S.%f')
 
-            can_data = pd.read_csv(can_file, header=None, index_col=None, names=CAN_COLUMNS, delim_whitespace=True, 
+            can_data = pd.read_csv(can_file, header=None, index_col=None, names=CAN_COLUMNS, delim_whitespace=True,
                 skiprows=2, na_values='9999.00')
             can_data.loc[:, 'interval'] = [pd.to_datetime(simulator_timestamp + datetime.timedelta(milliseconds=interval * 1000))
                 .tz_localize('Europe/Zurich') for interval in can_data['interval']]
@@ -380,15 +399,20 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             can_data_filtered.loc[:, "indicator_left"] = (can_data_filtered["indicator"] == 2).astype(int)
             can_data_filtered.drop(["indicator"], axis=1, inplace=True)
 
-            path_ids, segment_ids = get_path_and_segment_ids(video, dimensions, can_data_filtered['timestamp'], video_timestamp, data_freq)
-            can_data_filtered.loc[:, 'path_id'] = path_ids
-            can_data_filtered.loc[:, 'segment_id'] = segment_ids
+            if not distance_based:
+                path_ids, segment_ids = get_path_and_segment_ids(video, dimensions, can_data_filtered['timestamp'], video_timestamp, data_freq)
+                can_data_filtered.loc[:, 'path_id'] = path_ids
+                can_data_filtered.loc[:, 'segment_id'] = segment_ids
+            else:
+                segment_ids = np.array([find_closest_segment(lanes_df, xpos, ypos) for xpos, ypos in zip(can_data_filtered['xpos'], can_data_filtered['ypos'])])
+                can_data_filtered.loc[:, 'path_id'] = np.nan
+                can_data_filtered.loc[:, 'segment_id'] = segment_ids
 
             lanes_on_route = lanes_df.loc[lanes_df['scenario'] == scenario]
             lane_info = [calculate_lane_pos(lanes_on_route, segment_id, latpos)
-                    for segment_id, latpos in zip(can_data_filtered['segment_id'], can_data_filtered['latpos'])]
+                        for segment_id, latpos in zip(can_data_filtered['segment_id'], can_data_filtered['latpos'])]
             lane_info = np.array(lane_info)
-            
+
             can_data_filtered.loc[:, 'lane_number'] = lane_info[:, 0]
             can_data_filtered.loc[:, 'lane_position'] = lane_info[:, 1]
 
@@ -399,6 +423,6 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             can_data_filtered = do_derivation_of_signals(can_data_filtered, SIGNALS_DERIVE_JERK, '_jerk', data_freq, '_acc')
 
             data.append(can_data_filtered)
-    
+
     data = pd.concat(data)
     data.to_parquet("out/can_data.parquet")
