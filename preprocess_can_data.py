@@ -370,7 +370,10 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             scenario = scenario_re_match.group(1).lower()
 
             distance_based = False
-            if (subject_id == '024' and state == 'below') or (subject_id == '005' and state == 'above' and scenario == 'rural'):
+            if ((subject_id == '024' and state == 'below')
+            or (subject_id == '005' and state == 'above' and scenario == 'rural')
+            or (subject_id == '031' and state == 'below' and scenario == 'rural')
+            or (subject_id == '018' and state == 'sober' and scenario == 'highway')):
                 distance_based = True
 
             print('subject id: {}, state: {}, scenario: {}'.format(subject_id, state, scenario))
