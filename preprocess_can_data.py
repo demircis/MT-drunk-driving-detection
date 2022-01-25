@@ -233,20 +233,22 @@ def find_closest_segment(lanes_df, target_xpos, target_ypos):
 def calculate_lane_pos(lanes_df, segment_id, latpos):
     lanes_in_segment = lanes_df.loc[lanes_df['segment_id'] == segment_id]
     if lanes_in_segment.empty:
-        return -1, np.nan
+        return -1, np.nan, np.nan, np.nan
     lanes_center = []
+    lanes_left_edge = []
+    lanes_right_edge = []
     prev_width = 0
     for _, row in lanes_in_segment.iterrows():
-        lanes_center.append(row['LaneWidth'] / 2.0 + row['RightEdgeLineWidth'] + prev_width)
-        prev_width = row['LaneWidth'] + row['RightEdgeLineWidth']
-    deviation = [np.abs(latpos - c) for c in lanes_center]
+        lanes_center.append(row['LaneWidth'] / 2.0 + prev_width)
+        lanes_left_edge.append(row['LaneWidth'] + prev_width)
+        lanes_right_edge.append(prev_width)
+        prev_width = row['LaneWidth']
+    deviation = [np.abs(latpos - (c - lanes_center[0])) for c in lanes_center]
     lane_number = np.argmin(deviation)
-    lane_position = None
-    if lane_number == 0:
-        lane_position = latpos
-    else:
-        lane_position = latpos - (lanes_center[lane_number] - lanes_center[0])
-    return lane_number, lane_position
+    lane_position = latpos - (lanes_center[lane_number] - lanes_center[0])
+    lane_distance_left_edge = (lanes_left_edge[lane_number] - lanes_center[0]) - latpos
+    lane_distance_right_edge = latpos - (lanes_right_edge[lane_number] - lanes_center[0])
+    return lane_number, lane_position, lane_distance_left_edge, lane_distance_right_edge
 
 
 def do_derivation_of_signals(df, signals, suffix, frequency_hz=None, replace_suffix=None):
@@ -402,22 +404,25 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             can_data_filtered.loc[:, "indicator_left"] = (can_data_filtered["indicator"] == 2).astype(int)
             can_data_filtered.drop(["indicator"], axis=1, inplace=True)
 
+            lanes_for_scenario = lanes_df.loc[lanes_df['scenario'] == scenario]
             if not distance_based:
                 path_ids, segment_ids = get_path_and_segment_ids(video, dimensions, can_data_filtered['timestamp'], video_timestamp, data_freq)
                 can_data_filtered.loc[:, 'path_id'] = path_ids
                 can_data_filtered.loc[:, 'segment_id'] = segment_ids
             else:
-                segment_ids = np.array([find_closest_segment(lanes_df, xpos, ypos) for xpos, ypos in zip(can_data_filtered['xpos'], can_data_filtered['ypos'])])
+                segment_ids = np.array([find_closest_segment(lanes_for_scenario, xpos, ypos) for xpos, ypos in zip(can_data_filtered['xpos'], can_data_filtered['ypos'])])
                 can_data_filtered.loc[:, 'path_id'] = np.nan
                 can_data_filtered.loc[:, 'segment_id'] = segment_ids
 
-            lanes_on_route = lanes_df.loc[lanes_df['scenario'] == scenario]
-            lane_info = [calculate_lane_pos(lanes_on_route, segment_id, latpos)
+            lane_info = [calculate_lane_pos(lanes_for_scenario, segment_id, latpos)
                         for segment_id, latpos in zip(can_data_filtered['segment_id'], can_data_filtered['latpos'])]
             lane_info = np.array(lane_info)
 
             can_data_filtered.loc[:, 'lane_number'] = lane_info[:, 0]
             can_data_filtered.loc[:, 'lane_position'] = lane_info[:, 1]
+            can_data_filtered.loc[:, 'lane_distance_left_edge'] = lane_info[:, 2]
+            can_data_filtered.loc[:, 'lane_distance_right_edge'] = lane_info[:, 3]
+            can_data_filtered.loc[:, 'lane_crossings'] = can_data_filtered['lane_position'].diff().abs()
 
             can_data_filtered.loc[:, 'Dhw'] = can_data_filtered['Thw'] * can_data_filtered['velocity']
 
