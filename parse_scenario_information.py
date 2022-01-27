@@ -108,7 +108,8 @@ def parse_scenario_information():
                     "rural": {"road_file": "ruralZWI.net", "scenario_file": "RuralExp-c.scn"},
                     "town": {"road_file": "dorpZWI.net", "scenario_file": "TownExp-c.scn"}}
 
-    route_details = []
+    route_details_rep = []
+    route_details_init = []
     path_details = []
     segment_details = []
     lane_details = []
@@ -119,17 +120,30 @@ def parse_scenario_information():
         with open(BASE_PATH + SCENARIO_FILES[scenario_key]["scenario_file"], 'r') as f:
             scenario_file_lines = [l.strip() for l in f.readlines()]
 
+        in_rep_function = False
         in_init_function = False
         for idx in range(len(scenario_file_lines)):
+            if 'Define Function SetRepeatedRoute()' in scenario_file_lines[idx]:
+                in_rep_function = True
+
+            if in_rep_function and ('Part[MainTarget].PathNr' in scenario_file_lines[idx]
+                or 'Part[MainTarget].Route' in scenario_file_lines[idx]):
+                route_details_rep = parse_route_details(route_details_rep, scenario_file_lines, idx, scenario_key)
+
+            if in_rep_function and "LastResetPath" in scenario_file_lines[idx]:
+                in_rep_function = False
+
             if 'Define Function SetInitRoute()' in scenario_file_lines[idx]:
                 in_init_function = True
 
             if in_init_function and ('Part[MainTarget].PathNr' in scenario_file_lines[idx]
                 or 'Part[MainTarget].Route' in scenario_file_lines[idx]):
-                route_details = parse_route_details(route_details, scenario_file_lines, idx, scenario_key)
+                route_details_init = parse_route_details(route_details_init, scenario_file_lines, idx, scenario_key)
 
             if in_init_function and "LastResetPath" in scenario_file_lines[idx]:
                 break
+        
+        route_details = route_details_init + route_details_rep
 
         for idx in range(len(road_file_lines)):
             if 'Path Nr.' in road_file_lines[idx]:
@@ -139,12 +153,12 @@ def parse_scenario_information():
             if 'NrDLanes' in road_file_lines[idx]:
                 parse_lane_details(lane_details, road_file_lines, idx, scenario_key)
 
-    route_df = pd.DataFrame(route_details)
+    route_df = pd.DataFrame(route_details).drop_duplicates()
     path_df = pd.DataFrame(path_details)
     segment_df = pd.DataFrame(segment_details)
     lane_df = pd.DataFrame(lane_details)
 
     final_df = segment_df.merge(lane_df, on=['scenario', 'lane_id'], suffixes=['_segment', '_lane'])
     final_df = path_df.merge(final_df, on=['scenario', 'segment_id'])
-    # final_df = route_df.merge(final_df, on=['scenario', 'path_id'])
+    final_df = route_df.merge(final_df, on=['scenario', 'path_id'])
     final_df.to_csv('out/scenario_information.csv')

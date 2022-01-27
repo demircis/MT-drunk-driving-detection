@@ -7,7 +7,7 @@ import pytz
 import cv2 as cv
 import ffmpeg
 import os
-from scipy.spatial import KDTree
+import math
 
 
 def filter_can_data_engine_on(can_data, timestamps):
@@ -216,17 +216,11 @@ def get_path_and_segment_ids(video, dimensions, data_timestamps, video_timestamp
 
 
 def find_closest_segment(lanes_df, target_xpos, target_ypos):
-    # distances = [[math.sqrt((target_xpos - x)**2 + (target_ypos - y)**2) for x, y in zip(np.linspace(start_x, end_x, 10), np.linspace(start_y, end_y, 10))]
-    #     for start_x, start_y, end_x, end_y in zip(lanes_df['StartPos_x_segment'], lanes_df['StartPos_y_segment'], lanes_df['StartPos_x_segment'], lanes_df['EndPos_y_segment'])]
-    # min_per_segment = np.min(distances, axis=1)
-    # min_idx = np.argmin(min_per_segment)
-
-    points = lanes_df[['StartPos_x_segment', 'StartPos_y_segment']].to_numpy()
-    points = np.concatenate((points, lanes_df[['EndPos_x_segment', 'EndPos_y_segment']].to_numpy()))
-    _, min_idx = KDTree(points).query([target_xpos, target_ypos])
-    nr_segments = len(lanes_df.index.to_numpy())
-    if min_idx >= nr_segments:
-        min_idx = min_idx - nr_segments
+    samples = 10
+    distances = [[math.sqrt((target_xpos - x)**2 + (target_ypos - y)**2) for x, y in zip(np.linspace(start_x, end_x, samples), np.linspace(start_y, end_y, samples))]
+        for start_x, start_y, end_x, end_y in zip(lanes_df['StartPos_x_segment'], lanes_df['StartPos_y_segment'], lanes_df['StartPos_x_segment'], lanes_df['EndPos_y_segment'])]
+    min_per_segment = np.min(distances, axis=1)
+    min_idx = np.argmin(min_per_segment)
     return lanes_df.iloc[min_idx]['segment_id']
 
 
@@ -410,9 +404,27 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
                 can_data_filtered.loc[:, 'path_id'] = path_ids
                 can_data_filtered.loc[:, 'segment_id'] = segment_ids
             else:
-                segment_ids = np.array([find_closest_segment(lanes_for_scenario, xpos, ypos) for xpos, ypos in zip(can_data_filtered['xpos'], can_data_filtered['ypos'])])
-                can_data_filtered.loc[:, 'path_id'] = np.nan
-                can_data_filtered.loc[:, 'segment_id'] = segment_ids
+                segment_ids = []
+                path_ids = []
+                path_id_order = lanes_for_scenario['path_id'].unique()
+                nr_paths = len(path_id_order)
+                i = 0
+                prev_path_id = path_id_order[i]
+                for xpos, ypos in zip(can_data_filtered['xpos'], can_data_filtered['ypos']):
+                    lanes_subset = []
+                    if i == nr_paths-1:
+                        lanes_subset = lanes_for_scenario.loc[lanes_for_scenario['path_id'] == path_id_order[i]]
+                    else:
+                        lanes_subset = lanes_for_scenario.loc[(lanes_for_scenario['path_id'] == path_id_order[i]) | (lanes_for_scenario['path_id'] == path_id_order[i+1])]
+                    segment_id = find_closest_segment(lanes_subset, xpos, ypos)
+                    segment_ids.append(segment_id)
+                    path_id = lanes_for_scenario.loc[lanes_for_scenario['segment_id'] == segment_id, 'path_id'].to_numpy()[0]
+                    path_ids.append(path_id)
+                    if path_id != prev_path_id:
+                        i += 1
+                    prev_path_id = path_id
+                can_data_filtered.loc[:, 'path_id'] = np.array(path_ids)
+                can_data_filtered.loc[:, 'segment_id'] = np.array(segment_ids)
 
             lane_info = [calculate_lane_pos(lanes_for_scenario, segment_id, latpos)
                         for segment_id, latpos in zip(can_data_filtered['segment_id'], can_data_filtered['latpos'])]
