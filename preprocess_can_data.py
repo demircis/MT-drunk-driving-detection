@@ -224,6 +224,29 @@ def find_closest_segment(lanes_df, target_xpos, target_ypos):
     return lanes_df.iloc[min_idx]['segment_id']
 
 
+def get_distance_based_path_and_segment_ids(lanes, xpositions, ypositions):
+    path_ids = []
+    segment_ids = []
+    path_id_order = lanes['path_id'].unique()
+    nr_paths = len(path_id_order)
+    i = 0
+    prev_path_id = path_id_order[i]
+    for xpos, ypos in zip(xpositions, ypositions):
+        lanes_subset = None
+        if i == nr_paths-1:
+            lanes_subset = lanes.loc[lanes['path_id'] == path_id_order[i]]
+        else:
+            lanes_subset = lanes.loc[(lanes['path_id'] == path_id_order[i]) | (lanes['path_id'] == path_id_order[i+1])]
+        segment_id = find_closest_segment(lanes_subset, xpos, ypos)
+        segment_ids.append(segment_id)
+        path_id = lanes.loc[lanes['segment_id'] == segment_id, 'path_id'].to_numpy()[0]
+        path_ids.append(path_id)
+        if path_id != prev_path_id:
+            i += 1
+        prev_path_id = path_id
+    return np.array(path_ids), np.array(segment_ids)
+
+
 def calculate_lane_pos(lanes_df, segment_id, latpos):
     lanes_in_segment = lanes_df.loc[lanes_df['segment_id'] == segment_id]
     if lanes_in_segment.empty:
@@ -239,7 +262,7 @@ def calculate_lane_pos(lanes_df, segment_id, latpos):
         prev_width = row['LaneWidth']
     deviation = [np.abs(latpos - (c - lanes_center[0])) for c in lanes_center]
     lane_number = np.argmin(deviation)
-    lane_position = latpos - (lanes_center[lane_number] - lanes_center[0])
+    lane_position = math.abs(latpos - (lanes_center[lane_number] - lanes_center[0]))
     lane_distance_left_edge = (lanes_left_edge[lane_number] - lanes_center[0]) - latpos
     lane_distance_right_edge = latpos - (lanes_right_edge[lane_number] - lanes_center[0])
     return lane_number, lane_position, lane_distance_left_edge, lane_distance_right_edge
@@ -267,6 +290,8 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
 
     if os.path.exists('out/error_digits.txt'):
         os.remove('out/error_digits.txt')
+    
+    CAR_WIDTH = 1.75
 
     CAN_COLUMNS = ['interval', 'steer', 'latpos', 'gas', 'brake', 'clutch', 'Thw', 'velocity', 'acc', 'latvel', 'dtoint', 'indicator',
                'heading', 'SpeedDif', 'LaneDirection', 'SteerError', 'SteerSpeed', 'Ttc', 'TtcOpp', 'LeftDis',
@@ -404,27 +429,9 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
                 can_data_filtered.loc[:, 'path_id'] = path_ids
                 can_data_filtered.loc[:, 'segment_id'] = segment_ids
             else:
-                segment_ids = []
-                path_ids = []
-                path_id_order = lanes_for_scenario['path_id'].unique()
-                nr_paths = len(path_id_order)
-                i = 0
-                prev_path_id = path_id_order[i]
-                for xpos, ypos in zip(can_data_filtered['xpos'], can_data_filtered['ypos']):
-                    lanes_subset = []
-                    if i == nr_paths-1:
-                        lanes_subset = lanes_for_scenario.loc[lanes_for_scenario['path_id'] == path_id_order[i]]
-                    else:
-                        lanes_subset = lanes_for_scenario.loc[(lanes_for_scenario['path_id'] == path_id_order[i]) | (lanes_for_scenario['path_id'] == path_id_order[i+1])]
-                    segment_id = find_closest_segment(lanes_subset, xpos, ypos)
-                    segment_ids.append(segment_id)
-                    path_id = lanes_for_scenario.loc[lanes_for_scenario['segment_id'] == segment_id, 'path_id'].to_numpy()[0]
-                    path_ids.append(path_id)
-                    if path_id != prev_path_id:
-                        i += 1
-                    prev_path_id = path_id
-                can_data_filtered.loc[:, 'path_id'] = np.array(path_ids)
-                can_data_filtered.loc[:, 'segment_id'] = np.array(segment_ids)
+                path_ids, segment_ids = get_distance_based_path_and_segment_ids(lanes_for_scenario, can_data_filtered['xpos'], can_data_filtered['ypos'])
+                can_data_filtered.loc[:, 'path_id'] = path_ids
+                can_data_filtered.loc[:, 'segment_id'] = segment_ids
 
             lane_info = [calculate_lane_pos(lanes_for_scenario, segment_id, latpos)
                         for segment_id, latpos in zip(can_data_filtered['segment_id'], can_data_filtered['latpos'])]
@@ -434,9 +441,14 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             can_data_filtered.loc[:, 'lane_position'] = lane_info[:, 1]
             can_data_filtered.loc[:, 'lane_distance_left_edge'] = lane_info[:, 2]
             can_data_filtered.loc[:, 'lane_distance_right_edge'] = lane_info[:, 3]
-            can_data_filtered.loc[:, 'lane_crossings'] = can_data_filtered['lane_position'].diff().abs()
+            can_data_filtered.loc[:, 'total_lane_crossings'] = (can_data_filtered['lane_distance_left_edge'] < (CAR_WIDTH / 2.0)
+                                                                | can_data_filtered['lane_distance_right_edge'] < (CAR_WIDTH / 2.0)).astype(int)
+            can_data_filtered.loc[:, 'lane_crossings_left'] = (can_data_filtered['lane_distance_left_edge'] < (CAR_WIDTH / 2.0)).astype(int)
+            can_data_filtered.loc[:, 'lane_crossings_right'] = (can_data_filtered['lane_distance_right_edge'] < (CAR_WIDTH / 2.0)).astype(int)
 
             can_data_filtered.loc[:, 'Dhw'] = can_data_filtered['Thw'] * can_data_filtered['velocity']
+
+            can_data_filtered.loc[:, 'speed_limit_exceeded'] = (can_data_filtered['SpeedDif'] > 0).astype(int)
 
             can_data_filtered = do_derivation_of_signals(can_data_filtered, SIGNALS_DERIVE_VELOCITY, '_vel', data_freq)
             can_data_filtered = do_derivation_of_signals(can_data_filtered, SIGNALS_DERIVE_ACCELERATION, '_acc', data_freq, '_vel')
