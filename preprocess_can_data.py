@@ -8,6 +8,8 @@ import cv2 as cv
 import ffmpeg
 import os
 import math
+from scipy.stats import kurtosis
+from scipy.signal import find_peaks, peak_widths
 
 
 def filter_can_data_engine_on(can_data, timestamps):
@@ -262,7 +264,7 @@ def calculate_lane_pos(lanes_df, segment_id, latpos):
         prev_width = row['LaneWidth']
     deviation = [np.abs(latpos - (c - lanes_center[0])) for c in lanes_center]
     lane_number = np.argmin(deviation)
-    lane_position = math.abs(latpos - (lanes_center[lane_number] - lanes_center[0]))
+    lane_position = abs(latpos - (lanes_center[lane_number] - lanes_center[0]))
     lane_distance_left_edge = (lanes_left_edge[lane_number] - lanes_center[0]) - latpos
     lane_distance_right_edge = latpos - (lanes_right_edge[lane_number] - lanes_center[0])
     return lane_number, lane_position, lane_distance_left_edge, lane_distance_right_edge
@@ -284,6 +286,38 @@ def do_derivation_of_signals(df, signals, suffix, frequency_hz=None, replace_suf
     return df
 
 
+def calculate_event_stats(events, signal):
+    def start(x):
+        return x.head(1)
+    def end(x):
+        return x.tail(1)
+    def duration(x):
+        return (x.max()-x.min()).total_seconds()
+    def quartile(x):
+        return np.quantile(x, q=0.25)
+    def autocorr(x):
+        return x.autocorr()
+    def mean_peak_heights(x):
+        _, props = find_peaks(x, height=0, width=1, plateau_size=0)
+        return np.mean(props['peak_heights'])
+    def mean_peak_widths(x):
+        ind, _ = find_peaks(x, height=0, width=1, plateau_size=0)
+        widths, _, _, _ = peak_widths(x, ind)
+        return np.mean(widths)
+    
+    return events.agg(
+            {
+                'timestamp': [start, duration],
+                signal: ['mean', 'min', 'max', 'std', 'skew', kurtosis, quartile, autocorr, mean_peak_heights, mean_peak_widths],
+                'velocity': [start, 'mean', end],
+                'acc': [start, 'mean', end],
+                'steer': [start, 'mean', 'std', end],
+                'SteerSpeed': [start, 'mean', 'std', end],
+                'latvel': [start, 'mean', 'std', end]
+            }
+        )
+
+
 def do_preprocessing(full_study, overwrite, data_freq=30):
     if glob.glob('out/can_data.parquet') and not overwrite:
         return
@@ -303,6 +337,8 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
     SIGNALS_DERIVE_ACCELERATION = ['gas_vel', 'brake_vel', 'latvel', 'SteerSpeed', 'SpeedDif']
     SIGNALS_DERIVE_JERK = ['gas_acc', 'brake_acc', 'latvel_acc', 'SteerSpeed_acc', 'acc']
 
+    gas_event_data = []
+    brake_event_data = []
     data = []
 
     if full_study:
@@ -441,8 +477,8 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             can_data_filtered.loc[:, 'lane_position'] = lane_info[:, 1]
             can_data_filtered.loc[:, 'lane_distance_left_edge'] = lane_info[:, 2]
             can_data_filtered.loc[:, 'lane_distance_right_edge'] = lane_info[:, 3]
-            can_data_filtered.loc[:, 'total_lane_crossings'] = (can_data_filtered['lane_distance_left_edge'] < (CAR_WIDTH / 2.0)
-                                                                | can_data_filtered['lane_distance_right_edge'] < (CAR_WIDTH / 2.0)).astype(int)
+            can_data_filtered.loc[:, 'total_lane_crossings'] = ((can_data_filtered['lane_distance_left_edge'] < (CAR_WIDTH / 2.0))
+                                                                | (can_data_filtered['lane_distance_right_edge'] < (CAR_WIDTH / 2.0))).astype(int)
             can_data_filtered.loc[:, 'lane_crossings_left'] = (can_data_filtered['lane_distance_left_edge'] < (CAR_WIDTH / 2.0)).astype(int)
             can_data_filtered.loc[:, 'lane_crossings_right'] = (can_data_filtered['lane_distance_right_edge'] < (CAR_WIDTH / 2.0)).astype(int)
 
@@ -456,5 +492,30 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
 
             data.append(can_data_filtered)
 
+            brake_events = can_data_filtered[can_data_filtered['brake'] > 0].groupby((can_data_filtered['brake'] == 0).cumsum())
+            brake_events_stats = calculate_event_stats(brake_events, 'brake')
+            brake_events_stats.insert(0, 'subject_id', subject_id)
+            brake_events_stats.insert(1, 'subject_state', state)
+            brake_events_stats.insert(2, 'subject_scenario', scenario)
+            brake_events_stats.reset_index(drop=True, inplace=True)
+
+            brake_event_data.append(brake_events_stats)
+
+            gas_events = can_data_filtered[can_data_filtered['gas'] > 0].groupby((can_data_filtered['gas'] == 0).cumsum())
+            gas_events_stats = calculate_event_stats(gas_events, 'gas')
+            gas_events_stats.insert(0, 'subject_id', subject_id)
+            gas_events_stats.insert(1, 'subject_state', state)
+            gas_events_stats.insert(2, 'subject_scenario', scenario)
+            gas_events_stats.reset_index(drop=True, inplace=True)
+
+            gas_event_data.append(gas_events_stats)
+            
+
     data = pd.concat(data)
     data.to_parquet("out/can_data.parquet")
+
+    brake_event_data = pd.concat(brake_event_data)
+    brake_event_data.to_parquet('out/can_data_brake_events.parquet')
+
+    gas_event_data = pd.concat(gas_event_data)
+    gas_event_data.to_parquet('out/can_data_gas_events.parquet')
