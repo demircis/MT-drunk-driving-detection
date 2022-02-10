@@ -318,6 +318,41 @@ def calculate_event_stats(events, signal):
         )
 
 
+def brake_to_gas(x):
+    gas = x[x['gas'] > 0]['gas']
+    if not gas.empty:
+        ind = gas.index.to_numpy()[0]
+        first = x['timestamp'].index.to_numpy()[0]
+        return pd.Series({'brake_to_gas': (x['timestamp'].at[ind] - x['timestamp'].at[first]).total_seconds()})
+    else:
+        return pd.Series({'brake_to_gas': np.nan})
+
+def gas_to_brake(x):
+    brake = x[x['brake'] > 0]['brake']
+    if not brake.empty:
+        ind = brake.index.to_numpy()[0]
+        first = x['timestamp'].index.to_numpy()[0]
+        return pd.Series({'gas_to_brake': (x['timestamp'].at[ind] - x['timestamp'].at[first]).total_seconds()})
+    else:
+        return pd.Series({'gas_to_brake': np.nan})
+
+
+def distance_covered(x):
+    first = x['timestamp'].index.to_numpy()[0]
+    last = x['timestamp'].index.to_numpy()[-1]
+    return pd.Series({'distance_covered': x['velocity'].mean() * (x['timestamp'].at[last] - x['timestamp'].at[first]).total_seconds()})
+
+
+def get_lane_switching(data, direction=''):
+    def calc_lane_switching(row):
+        # check 5 seconds after lane crossing started if the lane number changes exactly once to indicate intended lane switching
+        counts = data.iloc[row.name:row.name+150]['lane_number'].diff().abs().value_counts()
+        return (counts[1] == 1).astype(int) if 1 in counts else 0
+    lane_switching = data[data['lane_crossing'+direction] == 1].apply(calc_lane_switching, axis=1)
+    lane_switching = lane_switching.reindex(list(range(data.index.min(), data.index.max()+1)), fill_value=0)
+    return lane_switching
+
+
 def do_preprocessing(full_study, overwrite, data_freq=30):
     if glob.glob('out/can_data.parquet') and not overwrite:
         return
@@ -477,10 +512,18 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             can_data_filtered.loc[:, 'lane_position'] = lane_info[:, 1]
             can_data_filtered.loc[:, 'lane_distance_left_edge'] = lane_info[:, 2]
             can_data_filtered.loc[:, 'lane_distance_right_edge'] = lane_info[:, 3]
-            can_data_filtered.loc[:, 'total_lane_crossings'] = ((can_data_filtered['lane_distance_left_edge'] < (CAR_WIDTH / 2.0))
+            can_data_filtered.loc[:, 'is_crossing_lane'] = ((can_data_filtered['lane_distance_left_edge'] < (CAR_WIDTH / 2.0))
                                                                 | (can_data_filtered['lane_distance_right_edge'] < (CAR_WIDTH / 2.0))).astype(int)
-            can_data_filtered.loc[:, 'lane_crossings_left'] = (can_data_filtered['lane_distance_left_edge'] < (CAR_WIDTH / 2.0)).astype(int)
-            can_data_filtered.loc[:, 'lane_crossings_right'] = (can_data_filtered['lane_distance_right_edge'] < (CAR_WIDTH / 2.0)).astype(int)
+            can_data_filtered.loc[:, 'lane_crossing'] = can_data_filtered['is_crossing_lane'].diff().abs()
+            can_data_filtered.loc[:, 'lane_switching'] = get_lane_switching(can_data_filtered)
+            can_data_filtered.loc[:, 'is_crossing_lane_left'] = (can_data_filtered['lane_distance_left_edge'] < (CAR_WIDTH / 2.0)).astype(int)
+            can_data_filtered.loc[:, 'is_crossing_lane_right'] = (can_data_filtered['lane_distance_right_edge'] < (CAR_WIDTH / 2.0)).astype(int)
+            can_data_filtered.loc[:, 'lane_crossing_left'] = (can_data_filtered['is_crossing_lane_left'].diff() == 1)
+            can_data_filtered.loc[:, 'lane_crossing_right'] = (can_data_filtered['is_crossing_lane_right'].diff() == 1)
+            if scenario != 'highway':
+                can_data_filtered.loc[:, 'opp_lane_switching'] = get_lane_switching(can_data_filtered, '_left')
+            else:
+                can_data_filtered.loc[:, 'opp_lane_switching'] = 0
 
             can_data_filtered.loc[:, 'Dhw'] = can_data_filtered['Thw'] * can_data_filtered['velocity']
 
@@ -492,8 +535,13 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
 
             data.append(can_data_filtered)
 
-            brake_events = can_data_filtered[can_data_filtered['brake'] > 0].groupby((can_data_filtered['brake'] == 0).cumsum())
-            brake_events_stats = calculate_event_stats(brake_events, 'brake')
+            positive_brake_events = can_data_filtered[can_data_filtered['brake'] > 0].groupby((can_data_filtered['brake'] == 0).cumsum())
+            zero_brake_events = can_data_filtered[can_data_filtered['brake'] == 0].groupby((can_data_filtered['brake'] > 0).cumsum())
+            gas_to_brake_event = zero_brake_events.apply(gas_to_brake)
+            brake_dist_covered = positive_brake_events.apply(distance_covered)
+            brake_events_stats = calculate_event_stats(positive_brake_events, 'brake')
+            brake_events_stats = pd.concat((brake_events_stats, brake_dist_covered), axis=1)
+            brake_events_stats = pd.concat((brake_events_stats, gas_to_brake_event), axis=1)
             brake_events_stats.insert(0, 'subject_id', subject_id)
             brake_events_stats.insert(1, 'subject_state', state)
             brake_events_stats.insert(2, 'subject_scenario', scenario)
@@ -501,8 +549,13 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
 
             brake_event_data.append(brake_events_stats)
 
-            gas_events = can_data_filtered[can_data_filtered['gas'] > 0].groupby((can_data_filtered['gas'] == 0).cumsum())
-            gas_events_stats = calculate_event_stats(gas_events, 'gas')
+            positive_gas_events = can_data_filtered[can_data_filtered['gas'] > 0].groupby((can_data_filtered['gas'] == 0).cumsum())
+            zero_gas_events = can_data_filtered[can_data_filtered['gas'] == 0].groupby((can_data_filtered['gas'] > 0).cumsum())
+            brake_to_gas_event = zero_gas_events.apply(brake_to_gas)
+            gas_dist_covered = positive_gas_events.apply(distance_covered)
+            gas_events_stats = calculate_event_stats(positive_gas_events, 'gas')
+            gas_events_stats = pd.concat((gas_events_stats, gas_dist_covered), axis=1)
+            gas_events_stats = pd.concat((gas_events_stats, brake_to_gas_event), axis=1)
             gas_events_stats.insert(0, 'subject_id', subject_id)
             gas_events_stats.insert(1, 'subject_state', state)
             gas_events_stats.insert(2, 'subject_scenario', scenario)
