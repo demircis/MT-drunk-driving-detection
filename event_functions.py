@@ -11,16 +11,16 @@ def calculate_event_stats(events, signal):
     def duration(x):
         return (x.max()-x.min()).total_seconds()
     def quartile(x):
-        return np.quantile(x, q=0.25)
+        return np.quantile(x, q=0.25) if not x.empty else np.nan
     def autocorr(x):
-        return x.autocorr()
+        return x.autocorr() if not x.empty else np.nan
     def mean_peak_heights(x):
         _, props = find_peaks(x, height=0, width=1, plateau_size=0)
-        return np.mean(props['peak_heights'])
+        return np.mean(props['peak_heights']) if not len(props['peak_heights']) == 0 else np.nan
     def mean_peak_widths(x):
         ind, _ = find_peaks(x, height=0, width=1, plateau_size=0)
         widths, _, _, _ = peak_widths(x, ind)
-        return np.mean(widths)
+        return np.mean(widths) if not len(widths) == 0 else np.nan
     
     return events.agg(
             {
@@ -56,20 +56,25 @@ def gas_to_brake(x):
 
 
 def distance_covered(x):
-    first = x['timestamp'].index.to_numpy()[0]
-    last = x['timestamp'].index.to_numpy()[-1]
-    return pd.Series({'distance_covered': x['velocity'].mean() * (x['timestamp'].at[last] - x['timestamp'].at[first]).total_seconds()})
+    if not x.empty:
+        first = x['timestamp'].index.to_numpy()[0]
+        last = x['timestamp'].index.to_numpy()[-1]
+        return pd.Series({'distance_covered': x['velocity'].mean() * (x['timestamp'].at[last] - x['timestamp'].at[first]).total_seconds()})
+    else:
+        return pd.Series({'distance_covered': np.nan})
 
 
 def get_overtaking_event(data, groupby):
     def overtaking_event(group):
         # 5 seconds before and after lane switch
         if not (group.head(1).empty or group.tail(1).empty):
-            start = group.head(1).index.to_numpy()[0] - 150
-            end = group.tail(1).index.to_numpy()[0] + 150
+            start = max(group.head(1).index.to_numpy()[0] - 150, 0)
+            end = min(group.tail(1).index.to_numpy()[0] + 150, data.index.max())
             timestamp = data.iloc[start]['timestamp']
             duration = (data.iloc[end]['timestamp'] - data.iloc[start]['timestamp']).total_seconds()
             distance = data.iloc[start:end]['velocity'].mean() * duration
+            mean_lane_pos = data.iloc[start:end]['lane_position'].mean()
+            std_lane_pos = data.iloc[start:end]['lane_position'].std()
             min_velocity = data.iloc[start:end]['velocity'].min()
             max_velocity = data.iloc[start:end]['velocity'].max()
             mean_velocity = data.iloc[start:end]['velocity'].mean()
@@ -94,6 +99,8 @@ def get_overtaking_event(data, groupby):
                 'timestamp': timestamp,
                 'duration': duration,
                 'distance': distance,
+                'mean_lane_position': mean_lane_pos,
+                'std_lane_position': std_lane_pos,
                 'min_velocity': min_velocity,
                 'max_velocity': max_velocity,
                 'mean_velocity': mean_velocity,
@@ -120,6 +127,8 @@ def get_overtaking_event(data, groupby):
                 'timestamp': np.nan,
                 'duration': np.nan,
                 'distance': distance,
+                'mean_lane_position': mean_lane_pos,
+                'std_lane_position': std_lane_pos,
                 'min_velocity': np.nan,
                 'max_velocity': np.nan,
                 'mean_velocity': np.nan,

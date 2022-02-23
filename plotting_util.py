@@ -20,6 +20,9 @@ def set_plot_title(ax, title, font_size=14, font_weight="normal", loc="center"):
 
 def set_plot_xticks(ax, xticks, xlabels, rotation=0):
     ax.set_xticks(xticks, xlabels, rotation=rotation)
+
+def set_plot_yticks(ax, yticks, ylabels, rotation=0):
+    ax.set_yticks(yticks, ylabels, rotation=rotation)
     
 def set_plot_ticks_size(ax, size=14):
     ax.set_xticks(fontsize=size)

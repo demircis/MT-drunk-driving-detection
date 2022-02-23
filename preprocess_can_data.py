@@ -251,8 +251,8 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             can_data_filtered.loc[:, 'lane_switching'] = get_lane_switching(can_data_filtered)
             can_data_filtered.loc[:, 'is_crossing_lane_left'] = (can_data_filtered['lane_distance_left_edge'] < (CAR_WIDTH / 2.0)).astype(int)
             can_data_filtered.loc[:, 'is_crossing_lane_right'] = (can_data_filtered['lane_distance_right_edge'] < (CAR_WIDTH / 2.0)).astype(int)
-            can_data_filtered.loc[:, 'lane_crossing_left'] = (can_data_filtered['is_crossing_lane_left'].diff() == 1)
-            can_data_filtered.loc[:, 'lane_crossing_right'] = (can_data_filtered['is_crossing_lane_right'].diff() == 1)
+            can_data_filtered.loc[:, 'lane_crossing_left'] = (can_data_filtered['is_crossing_lane_left'].diff() == 1).astype(int)
+            can_data_filtered.loc[:, 'lane_crossing_right'] = (can_data_filtered['is_crossing_lane_right'].diff() == 1).astype(int)
             if scenario != 'highway':
                 can_data_filtered.loc[:, 'opp_lane_switching'] = get_lane_switching(can_data_filtered, '_left')
             else:
@@ -268,9 +268,12 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
 
             data.append(can_data_filtered)
 
-            positive_brake_events = can_data_filtered[(can_data_filtered['brake'] > 0) & (can_data_filtered['gas'] == 0)].groupby((can_data_filtered['brake'] == 0).cumsum())
-            zero_brake_events = can_data_filtered[can_data_filtered['brake'] == 0].groupby((can_data_filtered['brake'] > 0).cumsum())
-            gas_to_brake_event = zero_brake_events.apply(gas_to_brake)
+            positive_brake_events = (can_data_filtered[can_data_filtered['brake'] > 0]
+                .groupby((can_data_filtered['brake'] == 0).cumsum())
+                .filter(lambda x: (x['gas'] == 0).all())
+                .groupby((can_data_filtered['brake'] == 0).cumsum()))
+            zero_gas_events = can_data_filtered[can_data_filtered['gas'] == 0].groupby((can_data_filtered['gas'] > 0).cumsum())
+            gas_to_brake_event = zero_gas_events.apply(gas_to_brake)
             brake_dist_covered = positive_brake_events.apply(distance_covered)
             brake_events_stats = calculate_event_stats(positive_brake_events, 'brake')
             brake_events_stats = pd.concat((brake_events_stats, brake_dist_covered), axis=1)
@@ -282,9 +285,12 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
 
             brake_event_data.append(brake_events_stats)
 
-            positive_gas_events = can_data_filtered[(can_data_filtered['gas'] > 0) & (can_data_filtered['brake'] == 0)].groupby((can_data_filtered['gas'] == 0).cumsum())
-            zero_gas_events = can_data_filtered[can_data_filtered['gas'] == 0].groupby((can_data_filtered['gas'] > 0).cumsum())
-            brake_to_gas_event = zero_gas_events.apply(brake_to_gas)
+            positive_gas_events = (can_data_filtered[can_data_filtered['gas'] > 0]
+                .groupby((can_data_filtered['gas'] == 0).cumsum())
+                .filter(lambda x: (x['brake'] == 0).all())
+                .groupby((can_data_filtered['gas'] == 0).cumsum()))
+            zero_brake_events = can_data_filtered[can_data_filtered['brake'] == 0].groupby((can_data_filtered['brake'] > 0).cumsum())
+            brake_to_gas_event = zero_brake_events.apply(brake_to_gas)
             gas_dist_covered = positive_gas_events.apply(distance_covered)
             gas_events_stats = calculate_event_stats(positive_gas_events, 'gas')
             gas_events_stats = pd.concat((gas_events_stats, gas_dist_covered), axis=1)
@@ -300,7 +306,7 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             overtaking_event_stats = get_overtaking_event(can_data_filtered, lane_zero_to_one)
             if scenario == 'highway':
                 lane_one_to_two = can_data_filtered[can_data_filtered['lane_number'] == 2].groupby((can_data_filtered['lane_number'] == 1).cumsum(), as_index=False)
-                overtaking_event_stats = pd.concat((overtaking_event_stats, get_overtaking_event(can_data_filtered, lane_one_to_two)), axis=1)
+                overtaking_event_stats = pd.concat((overtaking_event_stats, get_overtaking_event(can_data_filtered, lane_one_to_two)))
             
             overtaking_event_data.append(overtaking_event_stats)
             
@@ -314,5 +320,5 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
     gas_event_data = pd.concat(gas_event_data)
     gas_event_data.to_parquet('out/can_data_gas_events.parquet')
 
-    overtaking_data = pd.concat(overtaking_data)
-    overtaking_data.to_parquet('out/can_data_overtaking_events.parquet')
+    overtaking_event_data = pd.concat(overtaking_event_data)
+    overtaking_event_data.to_parquet('out/can_data_overtaking_events.parquet')
