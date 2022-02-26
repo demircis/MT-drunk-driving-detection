@@ -5,7 +5,7 @@ import re
 import datetime
 import pytz
 import os
-from event_functions import brake_to_gas, calculate_event_stats, distance_covered, gas_to_brake, get_overtaking_event
+from event_functions import brake_to_gas, calculate_event_stats, distance_covered, gas_to_brake, get_overtaking_events, get_turning_events
 from id_extraction import get_distance_based_path_and_segment_ids, get_path_and_segment_ids
 
 
@@ -105,8 +105,11 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
     SIGNALS_DERIVE_JERK = ['gas_acc', 'brake_acc', 'latvel_acc', 'SteerSpeed_acc', 'acc']
 
     gas_event_data = []
+    brake_to_gas_event_data = []
     brake_event_data = []
+    gas_to_brake_event_data = []
     overtaking_event_data = []
+    turning_event_data = []
     data = []
 
     if full_study:
@@ -269,46 +272,51 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             data.append(can_data_filtered)
 
             positive_brake_events = (can_data_filtered[can_data_filtered['brake'] > 0]
-                .groupby((can_data_filtered['brake'] == 0).cumsum())
+                .groupby((can_data_filtered['brake'] == 0).cumsum(), as_index=False)
                 .filter(lambda x: (x['gas'] == 0).all())
-                .groupby((can_data_filtered['brake'] == 0).cumsum()))
-            zero_gas_events = can_data_filtered[can_data_filtered['gas'] == 0].groupby((can_data_filtered['gas'] > 0).cumsum())
+                .groupby((can_data_filtered['brake'] == 0).cumsum(), as_index=False))
+            zero_gas_events = can_data_filtered[can_data_filtered['gas'] == 0].groupby((can_data_filtered['gas'] > 0).cumsum(), as_index=False)
             gas_to_brake_event = zero_gas_events.apply(gas_to_brake)
             brake_dist_covered = positive_brake_events.apply(distance_covered)
             brake_events_stats = calculate_event_stats(positive_brake_events, 'brake')
+            brake_events_stats.columns = brake_events_stats.columns.map('_'.join)
             brake_events_stats = pd.concat((brake_events_stats, brake_dist_covered), axis=1)
-            brake_events_stats = pd.concat((brake_events_stats, gas_to_brake_event), axis=1)
             brake_events_stats.insert(0, 'subject_id', subject_id)
             brake_events_stats.insert(1, 'subject_state', state)
             brake_events_stats.insert(2, 'subject_scenario', scenario)
             brake_events_stats.reset_index(drop=True, inplace=True)
 
             brake_event_data.append(brake_events_stats)
+            gas_to_brake_event_data.append(gas_to_brake_event)
 
             positive_gas_events = (can_data_filtered[can_data_filtered['gas'] > 0]
-                .groupby((can_data_filtered['gas'] == 0).cumsum())
+                .groupby((can_data_filtered['gas'] == 0).cumsum(), as_index=False)
                 .filter(lambda x: (x['brake'] == 0).all())
-                .groupby((can_data_filtered['gas'] == 0).cumsum()))
-            zero_brake_events = can_data_filtered[can_data_filtered['brake'] == 0].groupby((can_data_filtered['brake'] > 0).cumsum())
+                .groupby((can_data_filtered['gas'] == 0).cumsum(), as_index=False))
+            zero_brake_events = can_data_filtered[can_data_filtered['brake'] == 0].groupby((can_data_filtered['brake'] > 0).cumsum(), as_index=False)
             brake_to_gas_event = zero_brake_events.apply(brake_to_gas)
             gas_dist_covered = positive_gas_events.apply(distance_covered)
             gas_events_stats = calculate_event_stats(positive_gas_events, 'gas')
+            gas_events_stats.columns = gas_events_stats.columns.map('_'.join)
             gas_events_stats = pd.concat((gas_events_stats, gas_dist_covered), axis=1)
-            gas_events_stats = pd.concat((gas_events_stats, brake_to_gas_event), axis=1)
             gas_events_stats.insert(0, 'subject_id', subject_id)
             gas_events_stats.insert(1, 'subject_state', state)
             gas_events_stats.insert(2, 'subject_scenario', scenario)
             gas_events_stats.reset_index(drop=True, inplace=True)
 
             gas_event_data.append(gas_events_stats)
+            brake_to_gas_event_data.append(brake_to_gas_event)
 
             lane_zero_to_one = can_data_filtered[can_data_filtered['lane_number'] == 1].groupby((can_data_filtered['lane_number'] == 0).cumsum(), as_index=False)
-            overtaking_event_stats = get_overtaking_event(can_data_filtered, lane_zero_to_one)
+            overtaking_events_stats = get_overtaking_events(can_data_filtered, lane_zero_to_one)
             if scenario == 'highway':
                 lane_one_to_two = can_data_filtered[can_data_filtered['lane_number'] == 2].groupby((can_data_filtered['lane_number'] == 1).cumsum(), as_index=False)
-                overtaking_event_stats = pd.concat((overtaking_event_stats, get_overtaking_event(can_data_filtered, lane_one_to_two)))
+                overtaking_events_stats = pd.concat((overtaking_events_stats, get_overtaking_events(can_data_filtered, lane_one_to_two)), ignore_index=True)
+            else:
+                turning_events_stats = get_turning_events(can_data_filtered)
+                turning_event_data.append(turning_events_stats)
             
-            overtaking_event_data.append(overtaking_event_stats)
+            overtaking_event_data.append(overtaking_events_stats)
             
 
     data = pd.concat(data)
@@ -317,8 +325,17 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
     brake_event_data = pd.concat(brake_event_data)
     brake_event_data.to_parquet('out/can_data_brake_events.parquet')
 
+    gas_to_brake_event_data = pd.concat(gas_to_brake_event_data)
+    gas_to_brake_event_data.to_parquet('out/can_data_gas_to_brake_events.parquet')
+
     gas_event_data = pd.concat(gas_event_data)
     gas_event_data.to_parquet('out/can_data_gas_events.parquet')
 
+    brake_to_gas_event_data = pd.concat(brake_to_gas_event_data)
+    brake_to_gas_event_data.to_parquet('out/can_data_brake_to_gas_events.parquet')
+
     overtaking_event_data = pd.concat(overtaking_event_data)
     overtaking_event_data.to_parquet('out/can_data_overtaking_events.parquet')
+
+    turning_event_data = pd.concat(turning_event_data)
+    turning_event_data.to_parquet('out/can_data_turning_events.parquet')

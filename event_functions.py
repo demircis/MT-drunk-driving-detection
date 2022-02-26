@@ -40,9 +40,9 @@ def brake_to_gas(x):
     if not gas.empty:
         ind = gas.index.to_numpy()[0]
         first = x['timestamp'].index.to_numpy()[0]
-        return pd.Series({'brake_to_gas': (x['timestamp'].at[ind] - x['timestamp'].at[first]).total_seconds()})
+        return pd.Series({'timestamp': x['timestamp'].at[first], 'brake_to_gas': (x['timestamp'].at[ind] - x['timestamp'].at[first]).total_seconds()})
     else:
-        return pd.Series({'brake_to_gas': np.nan})
+        return pd.Series({'timestamp': np.nan, 'brake_to_gas': np.nan})
 
 
 def gas_to_brake(x):
@@ -50,9 +50,9 @@ def gas_to_brake(x):
     if not brake.empty:
         ind = brake.index.to_numpy()[0]
         first = x['timestamp'].index.to_numpy()[0]
-        return pd.Series({'gas_to_brake': (x['timestamp'].at[ind] - x['timestamp'].at[first]).total_seconds()})
+        return pd.Series({'timestamp': x['timestamp'].at[first], 'gas_to_brake': (x['timestamp'].at[ind] - x['timestamp'].at[first]).total_seconds()})
     else:
-        return pd.Series({'gas_to_brake': np.nan})
+        return pd.Series({'timestamp': np.nan, 'gas_to_brake': np.nan})
 
 
 def distance_covered(x):
@@ -64,7 +64,7 @@ def distance_covered(x):
         return pd.Series({'distance_covered': np.nan})
 
 
-def get_overtaking_event(data, groupby):
+def get_overtaking_events(data, groupby):
     def overtaking_event(group):
         # 5 seconds before and after lane switch
         if not (group.head(1).empty or group.tail(1).empty):
@@ -151,3 +151,81 @@ def get_overtaking_event(data, groupby):
                 'std_latvel': np.nan
                 })
     return groupby.apply(overtaking_event)
+
+
+def merge_maneuvers(groups, idx):
+    if len(groups) == 1:
+        return groups
+    if idx == len(groups)-1:
+        return groups
+    if groups[idx+1][0] - groups[idx][-1] <= 90:
+        new_groups = groups[:idx] + [groups[idx] + groups[idx+1]] + groups[idx+2:]
+        return merge_maneuvers(new_groups, idx)
+    else:
+        return merge_maneuvers(groups, idx+1)
+
+
+def get_turning_events(data):
+    test = data[(data['steer'] <= -10) | (data['steer'] >= 10)].index.values
+    groups = [[test[0]]]
+    for x in test[1:]:
+        if x == groups[-1][-1] + 1:
+            groups[-1].append(x)
+        else:
+            groups.append([x])
+    
+    maneuvers = merge_maneuvers(groups, 0)
+    turning_event_data = []
+    for maneuver_indices in maneuvers:
+        start = maneuver_indices[0]
+        end = maneuver_indices[-1]
+        timestamp = data.iloc[start]['timestamp']
+        duration = (data.iloc[end]['timestamp'] - data.iloc[start]['timestamp']).total_seconds()
+        distance = data.iloc[start:end]['velocity'].mean() * duration
+        min_velocity = data.iloc[start:end]['velocity'].min()
+        max_velocity = data.iloc[start:end]['velocity'].max()
+        mean_velocity = data.iloc[start:end]['velocity'].mean()
+        std_velocity = data.iloc[start:end]['velocity'].std()
+        min_acc = data.iloc[start:end]['acc'].min()
+        max_acc = data.iloc[start:end]['acc'].max()
+        mean_acc = data.iloc[start:end]['acc'].mean()
+        std_acc = data.iloc[start:end]['acc'].std()
+        min_steer = data.iloc[start:end]['steer'].min()
+        max_steer = data.iloc[start:end]['steer'].max()
+        mean_steer = data.iloc[start:end]['steer'].mean()
+        std_steer = data.iloc[start:end]['steer'].std()
+        min_SteerSpeed = data.iloc[start:end]['SteerSpeed'].min()
+        max_SteerSpeed = data.iloc[start:end]['SteerSpeed'].max()
+        mean_SteerSpeed = data.iloc[start:end]['SteerSpeed'].mean()
+        std_SteerSpeed = data.iloc[start:end]['SteerSpeed'].std()
+        min_latvel = data.iloc[start:end]['latvel'].min()
+        max_latvel = data.iloc[start:end]['latvel'].max()
+        mean_latvel = data.iloc[start:end]['latvel'].mean()
+        std_latvel = data.iloc[start:end]['latvel'].std()
+        turning_event_data.append({
+            'timestamp': timestamp,
+            'duration': duration,
+            'distance': distance,
+            'min_velocity': min_velocity,
+            'max_velocity': max_velocity,
+            'mean_velocity': mean_velocity,
+            'std_velocity': std_velocity,
+            'min_acc': min_acc,
+            'max_acc': max_acc,
+            'mean_acc': mean_acc,
+            'std_acc': std_acc,
+            'min_steer': min_steer,
+            'max_steer': max_steer,
+            'mean_steer': mean_steer,
+            'std_steer': std_steer,
+            'min_SteerSpeed': min_SteerSpeed,
+            'max_SteerSpeed': max_SteerSpeed,
+            'mean_SteerSpeed': mean_SteerSpeed,
+            'std_SteerSpeed': std_SteerSpeed,
+            'min_latvel': min_latvel,
+            'max_latvel': max_latvel,
+            'mean_latvel': mean_latvel,
+            'std_latvel': std_latvel
+            })
+    
+    return pd.DataFrame(turning_event_data)
