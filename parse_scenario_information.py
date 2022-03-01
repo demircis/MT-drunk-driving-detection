@@ -17,9 +17,9 @@ def parse_path_details(path_details, road_file_lines, idx, scenario):
     path_match = path_pattern.search(road_file_lines[idx])
     path_segments = path_segments_pattern.findall(road_file_lines[idx+3])
     if path_match:
-        path_id = path_match.group(1)
+        path_id = int(path_match.group(1))
         for s_id in path_segments:
-            path_details.append({'path_id': int(path_id), 'scenario': scenario, 'segment_id': int(s_id)})
+            path_details.append({'path_id': path_id, 'scenario': scenario, 'segment_id': int(s_id)})
     return path_details
 
 
@@ -35,7 +35,7 @@ def parse_segment_details(segment_details, road_file_lines, idx, scenario):
     segment_end_pos_y = None
     segment_match = segment_pattern.search(road_file_lines[idx])
     if segment_match:
-        segment_id = segment_match.group(1)
+        segment_id = int(segment_match.group(1))
     segment_pos_match = position_pattern.findall(road_file_lines[idx+10])
     for s, x, y in segment_pos_match:
         if s == 'StartPos':
@@ -44,17 +44,22 @@ def parse_segment_details(segment_details, road_file_lines, idx, scenario):
         if s == 'EndPos':
             segment_end_pos_x = float(x)
             segment_end_pos_y = float(y)
-    if 'NrDLanes' in road_file_lines[idx+13]:
-        dlanes_match = dlanes_pattern.search(road_file_lines[idx+13])
+    offset = None
+    for i, line in enumerate(road_file_lines[idx:idx+20]):
+        if 'NrDLanes' in line:
+            offset = i
+            break
+    if 'NrDLanes' in road_file_lines[idx+offset]:
+        dlanes_match = dlanes_pattern.search(road_file_lines[idx+offset])
         if dlanes_match:
             nr_driving_lanes = int(dlanes_match.group(1))
         for i in range(nr_driving_lanes):
-            base_idx = idx+15+i*9
-            lane_nr_match = lane_pattern.search(road_file_lines[base_idx])
+            base_idx = idx+i*9
+            lane_nr_match = lane_pattern.search(road_file_lines[base_idx+offset+2])
             lane_id = None
             if lane_nr_match:
-                lane_id = lane_nr_match.group(1)
-                segment_details.append({'segment_id': int(segment_id), 'scenario': scenario, 'lane_id': int(lane_id), 'StartPos_x': segment_start_pos_x,
+                lane_id = int(lane_nr_match.group(1))
+                segment_details.append({'segment_id': segment_id, 'scenario': scenario, 'lane_id': lane_id, 'StartPos_x': segment_start_pos_x,
                                             'StartPos_y': segment_start_pos_y, 'EndPos_x': segment_end_pos_x, 
                                             'EndPos_y': segment_end_pos_y})
     return segment_details
@@ -77,7 +82,7 @@ def parse_lane_details(lane_details, road_file_lines, idx, scenario):
         lane_end_pos_x = None
         lane_end_pos_y = None
         if lane_nr_match:
-            lane_id = lane_nr_match.group(1)
+            lane_id = int(lane_nr_match.group(1))
         lane_pos_match = position_pattern.findall(road_file_lines[base_idx+1])
         for s, x, y in lane_pos_match:
             if s == 'StartPos':
@@ -96,10 +101,38 @@ def parse_lane_details(lane_details, road_file_lines, idx, scenario):
                 left_edge_width = float(x)
             if s == 'RightEdgeLineWidth':
                 right_edge_width = float(x)
-        lane_details.append({'lane_id': int(lane_id), 'scenario': scenario, 'StartPos_x': lane_start_pos_x, 'StartPos_y': lane_start_pos_y,
+        lane_details.append({'lane_id': lane_id, 'scenario': scenario, 'StartPos_x': lane_start_pos_x, 'StartPos_y': lane_start_pos_y,
         'EndPos_x': lane_end_pos_x, 'EndPos_y': lane_end_pos_y, 'LaneWidth': lane_width, 'LeftEdgeLineWidth': left_edge_width,
         'RightEdgeLineWidth': right_edge_width})
     return lane_details
+
+
+def parse_road_sign_details(road_sign_details, road_file_lines, idx, scenario):
+    signs_pattern = re.compile('Number of Signs[\s]*([0-9]+)')
+    sign_id_pattern = re.compile('SignId[\s]*([0-9]+)')
+    sign_type_pattern = re.compile('SignType[\s]*([0-9]+)')
+    sign_position_pattern = re.compile('X[\s]+([\-0-9]+.[0-9]+)[\s]+Y[\s]+([\-0-9]+.[0-9]+)')
+    signs_match = signs_pattern.search(road_file_lines[idx])
+    if signs_match:
+        nr_road_signs = int(signs_match.group(1))
+    sign_id = None
+    sign_type = None
+    xpos = None
+    ypos = None
+    for i in range(nr_road_signs):
+        base_idx = idx+i*3
+        sign_id_match = sign_id_pattern.search(road_file_lines[base_idx+1])
+        sign_type_match = sign_type_pattern.search(road_file_lines[base_idx+1])
+        if sign_id_match:
+            sign_id = int(sign_id_match.group(1))
+        if sign_type_match:
+            sign_type = int(sign_type_match.group(1))
+        position_match = sign_position_pattern.search(road_file_lines[base_idx+2])
+        if position_match:
+            xpos = float(position_match.group(1))
+            ypos = float(position_match.group(2))
+        road_sign_details.append({'sign_id': sign_id, 'scenario': scenario, 'signType': sign_type, 'sign_xPos': xpos, 'sign_yPos': ypos})
+    return road_sign_details
 
 
 def parse_scenario_information():
@@ -113,6 +146,7 @@ def parse_scenario_information():
     path_details = []
     segment_details = []
     lane_details = []
+    road_sign_details = []
     for scenario_key in SCENARIO_FILES:
 
         with open(BASE_PATH + SCENARIO_FILES[scenario_key]["road_file"], 'r') as f:
@@ -151,7 +185,9 @@ def parse_scenario_information():
             if 'Segment Nr.' in road_file_lines[idx]:
                 segment_details = parse_segment_details(segment_details, road_file_lines, idx, scenario_key)
             if 'NrDLanes' in road_file_lines[idx]:
-                parse_lane_details(lane_details, road_file_lines, idx, scenario_key)
+                lane_details = parse_lane_details(lane_details, road_file_lines, idx, scenario_key)
+            if 'Number of Signs' in road_file_lines[idx] and idx > 10:
+                road_sign_details = parse_road_sign_details(road_sign_details, road_file_lines, idx, scenario_key)
 
     route_df = pd.DataFrame(route_details).drop_duplicates()
     path_df = pd.DataFrame(path_details)
@@ -161,4 +197,7 @@ def parse_scenario_information():
     final_df = segment_df.merge(lane_df, on=['scenario', 'lane_id'], suffixes=['_segment', '_lane'])
     final_df = path_df.merge(final_df, on=['scenario', 'segment_id'])
     final_df = route_df.merge(final_df, on=['scenario', 'path_id'])
-    final_df.to_csv('out/scenario_information.csv')
+    final_df.to_csv('out/scenario_information.csv', index=False)
+
+    road_sign_df = pd.DataFrame(road_sign_details)
+    road_sign_df.to_csv('out/road_sign_information.csv', index=False)

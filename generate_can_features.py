@@ -1,15 +1,18 @@
 import pandas as pd
 from flirt.stats import get_stat_features
 
-GROUPING_COLUMNS = ["subject_id", "subject_state", "subject_scenario"]
+GROUPING_COLUMNS = ['subject_id', 'subject_state', 'subject_scenario']
 
 DRIVER_BEHAVIOR = ['steer', 'gas', 'brake', 'SteerSpeed', 'indicator_left', 'indicator_right',
                     'gas_vel', 'brake_vel', 'gas_acc', 'brake_acc', 'SteerSpeed_acc',
                     'gas_jerk', 'brake_jerk', 'SteerSpeed_jerk', 'SteerError']
 VEHICLE_BEHAVIOR = ['velocity', 'acc', 'acc_jerk', 'latvel', 'YawRate', 'latvel_acc', 'latvel_jerk',
                     'YawRate_acc', 'YawRate_jerk']
-RADAR = ['lane_position', "Ttc", 'TtcOpp', "Thw", "Dhw"]
-NAVI = ['dtoint', 'SpeedDif']
+RADAR = ['lane_position', 'lane_distance_left_edge', 'lane_distance_right_edge', 'lane_crossing', 
+         'is_crossing_lane', 'is_crossing_lane_left', 'is_crossing_lane_right',
+         'lane_crossing_left', 'lane_crossing_right', 'lane_switching', 'opp_lane_switching',
+         'Ttc', 'TtcOpp', 'Thw', 'Dhw']
+NAVI = ['dtoint', 'SpeedDif', 'speed_limit_exceeded']
 
 SIGNALS = {'driver_behavior': DRIVER_BEHAVIOR, 'vehicle_behavior': VEHICLE_BEHAVIOR, 'radar': RADAR, 'navi': NAVI}
 
@@ -21,7 +24,7 @@ def can_window_agg(data, window_length, data_freq=30, num_cores=0):
 
 def store_can_features(window_sizes):
 
-    can_data = pd.read_parquet("out/can_data.parquet")
+    can_data = pd.read_parquet('out/can_data.parquet')
 
     for key, signal in SIGNALS.items():
         for window_size in window_sizes:

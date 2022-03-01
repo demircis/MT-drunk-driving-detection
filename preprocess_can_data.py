@@ -5,7 +5,7 @@ import re
 import datetime
 import pytz
 import os
-from event_functions import brake_to_gas, calculate_event_stats, distance_covered, gas_to_brake, get_overtaking_events, get_turning_events
+from event_functions import brake_to_gas, calculate_event_stats, distance_covered, gas_to_brake, get_overtaking_events, get_road_sign_events, get_turning_events
 from id_extraction import get_distance_based_path_and_segment_ids, get_path_and_segment_ids
 
 
@@ -110,6 +110,7 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
     gas_to_brake_event_data = []
     overtaking_event_data = []
     turning_event_data = []
+    road_sign_event_data = []
     data = []
 
     if full_study:
@@ -135,6 +136,8 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
     timestamp_re = re.compile(r'(\d{4})-(\d{2})-(\d{2})--(\d{2})-(\d{2})-(\d{2}).flv')
 
     lanes_df = pd.read_csv('out/scenario_information.csv')
+
+    road_signs_df = pd.read_csv('out/road_sign_information.csv')
 
     for subject in subject_folders:
         subject_id_match = subject_re.search(subject)
@@ -314,9 +317,106 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
                 overtaking_events_stats = pd.concat((overtaking_events_stats, get_overtaking_events(can_data_filtered, lane_one_to_two)), ignore_index=True)
             else:
                 turning_events_stats = get_turning_events(can_data_filtered)
+                turning_events_stats.insert(0, 'subject_id', subject_id)
+                turning_events_stats.insert(1, 'subject_state', state)
+                turning_events_stats.insert(2, 'subject_scenario', scenario)
                 turning_event_data.append(turning_events_stats)
             
+            overtaking_events_stats.insert(0, 'subject_id', subject_id)
+            overtaking_events_stats.insert(1, 'subject_state', state)
+            overtaking_events_stats.insert(2, 'subject_scenario', scenario)
             overtaking_event_data.append(overtaking_events_stats)
+
+            SPEED_LIMIT_30 = 1
+            SPEED_LIMIT_50 = 2
+            SPEED_LIMIT_60 = 140
+            SPEED_LIMIT_80 = 141
+            SPEED_LIMIT_100 = 4
+            SPEED_LIMIT_120 = 5
+            STOP_SIGN = 24
+            SPEED_BUMP = 94
+            PED_CROSSING_WARNING = 107
+            PED_CROSSING = 114
+
+            signs_for_scenario = road_signs_df[road_signs_df['scenario'] == scenario]
+            speed_limit_30 = signs_for_scenario[signs_for_scenario['signType'] == SPEED_LIMIT_30]
+            speed_limit_50 = signs_for_scenario[signs_for_scenario['signType'] == SPEED_LIMIT_50]
+            speed_limit_60 = signs_for_scenario[signs_for_scenario['signType'] == SPEED_LIMIT_60]
+            speed_limit_80 = signs_for_scenario[signs_for_scenario['signType'] == SPEED_LIMIT_80]
+            speed_limit_100 = signs_for_scenario[signs_for_scenario['signType'] == SPEED_LIMIT_100]
+            speed_limit_120 = signs_for_scenario[signs_for_scenario['signType'] == SPEED_LIMIT_120]
+
+            speed_limit_30_events_stats = get_road_sign_events(speed_limit_30, can_data_filtered, 'speed_limit_30')
+            speed_limit_30_events_stats.insert(0, 'subject_id', subject_id)
+            speed_limit_30_events_stats.insert(1, 'subject_state', state)
+            speed_limit_30_events_stats.insert(2, 'subject_scenario', scenario)
+
+            speed_limit_50_events_stats = get_road_sign_events(speed_limit_50, can_data_filtered, 'speed_limit_50')
+            speed_limit_50_events_stats.insert(0, 'subject_id', subject_id)
+            speed_limit_50_events_stats.insert(1, 'subject_state', state)
+            speed_limit_50_events_stats.insert(2, 'subject_scenario', scenario)
+
+            speed_limit_60_events_stats = get_road_sign_events(speed_limit_60, can_data_filtered, 'speed_limit_60')
+            speed_limit_60_events_stats.insert(0, 'subject_id', subject_id)
+            speed_limit_60_events_stats.insert(1, 'subject_state', state)
+            speed_limit_60_events_stats.insert(2, 'subject_scenario', scenario)
+
+            speed_limit_80_events_stats = get_road_sign_events(speed_limit_80, can_data_filtered, 'speed_limit_80')
+            speed_limit_80_events_stats.insert(0, 'subject_id', subject_id)
+            speed_limit_80_events_stats.insert(1, 'subject_state', state)
+            speed_limit_80_events_stats.insert(2, 'subject_scenario', scenario)
+
+            speed_limit_100_events_stats = get_road_sign_events(speed_limit_100, can_data_filtered, 'speed_limit_100')
+            speed_limit_100_events_stats.insert(0, 'subject_id', subject_id)
+            speed_limit_100_events_stats.insert(1, 'subject_state', state)
+            speed_limit_100_events_stats.insert(2, 'subject_scenario', scenario)
+
+            speed_limit_120_events_stats = get_road_sign_events(speed_limit_120, can_data_filtered, 'speed_limit_120')
+            speed_limit_120_events_stats.insert(0, 'subject_id', subject_id)
+            speed_limit_120_events_stats.insert(1, 'subject_state', state)
+            speed_limit_120_events_stats.insert(2, 'subject_scenario', scenario)
+
+
+            stop_signs = signs_for_scenario[signs_for_scenario['signType'] == STOP_SIGN]
+            speed_bumps = signs_for_scenario[signs_for_scenario['signType'] == SPEED_BUMP]
+            ped_crossing_warnings = signs_for_scenario[signs_for_scenario['signType'] == PED_CROSSING_WARNING]
+            ped_crossings = signs_for_scenario[signs_for_scenario['signType'] == PED_CROSSING]
+
+            stop_sign_events_stats = get_road_sign_events(stop_signs, can_data_filtered, 'stop')
+            stop_sign_events_stats.insert(0, 'subject_id', subject_id)
+            stop_sign_events_stats.insert(1, 'subject_state', state)
+            stop_sign_events_stats.insert(2, 'subject_scenario', scenario)
+
+            speed_bumps_events_stats = get_road_sign_events(speed_bumps, can_data_filtered, 'speed_bump')
+            speed_bumps_events_stats.insert(0, 'subject_id', subject_id)
+            speed_bumps_events_stats.insert(1, 'subject_state', state)
+            speed_bumps_events_stats.insert(2, 'subject_scenario', scenario)
+
+
+            ped_crossing_warning_events_stats = get_road_sign_events(ped_crossing_warnings, can_data_filtered, 'pedestrian_crossing_warning')
+            ped_crossing_warning_events_stats.insert(0, 'subject_id', subject_id)
+            ped_crossing_warning_events_stats.insert(1, 'subject_state', state)
+            ped_crossing_warning_events_stats.insert(2, 'subject_scenario', scenario)
+
+            ped_crossings_events_stats = get_road_sign_events(ped_crossings, can_data_filtered, 'pedestrian_crossing')
+            ped_crossings_events_stats.insert(0, 'subject_id', subject_id)
+            ped_crossings_events_stats.insert(1, 'subject_state', state)
+            ped_crossings_events_stats.insert(2, 'subject_scenario', scenario)
+
+            road_sign_events_stats = pd.concat((
+                speed_limit_30_events_stats,
+                speed_limit_50_events_stats,
+                speed_limit_60_events_stats,
+                speed_limit_80_events_stats,
+                speed_limit_100_events_stats,
+                speed_limit_120_events_stats,
+                stop_sign_events_stats,
+                speed_bumps_events_stats,
+                ped_crossing_warning_events_stats,
+                ped_crossings_events_stats
+                ))
+            road_sign_event_data.append(road_sign_events_stats)
+
             
 
     data = pd.concat(data)
@@ -339,3 +439,6 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
 
     turning_event_data = pd.concat(turning_event_data)
     turning_event_data.to_parquet('out/can_data_turning_events.parquet')
+
+    road_sign_event_data = pd.concat(road_sign_event_data)
+    road_sign_event_data.to_parquet('out/can_data_road_sign_events.parquet')

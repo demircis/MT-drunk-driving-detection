@@ -229,3 +229,51 @@ def get_turning_events(data):
             })
     
     return pd.DataFrame(turning_event_data)
+
+
+def get_road_sign_events(sign_info, data, sign_type):
+    distances = [[(xpos - x)**2 + (ypos - y)**2 for xpos, ypos in zip(data['xpos'], data['ypos'])]
+                    for x, y in zip(sign_info['sign_xPos'], sign_info['sign_yPos'])]
+    distances = np.array(distances)
+    if len(distances) == 0:
+        return pd.DataFrame()
+    indices_for_sign = np.argmin(distances, axis=1)
+    road_sign_event_stats = []
+    for i, idx in enumerate(indices_for_sign):
+        if distances[i][idx] <= 50:
+            start = idx-150
+            end = idx+150
+            timestamp = data.iloc[idx]['timestamp']
+            duration = (data.iloc[end]['timestamp'] - data.iloc[start]['timestamp']).total_seconds()
+            distance = data.iloc[start:end]['velocity'].mean() * duration
+            min_velocity = data.iloc[start:end]['velocity'].min()
+            max_velocity = data.iloc[start:end]['velocity'].max()
+            mean_velocity = data.iloc[start:end]['velocity'].mean()
+            std_velocity = data.iloc[start:end]['velocity'].std()
+            min_acc = data.iloc[start:end]['acc'].min()
+            max_acc = data.iloc[start:end]['acc'].max()
+            mean_acc = data.iloc[start:end]['acc'].mean()
+            std_acc = data.iloc[start:end]['acc'].std()
+            min_brake = data.iloc[start:end]['brake'].min()
+            max_brake = data.iloc[start:end]['brake'].max()
+            mean_brake = data.iloc[start:end]['brake'].mean()
+            std_brake = data.iloc[start:end]['brake'].std()
+            road_sign_event_stats.append({
+                'timestamp': timestamp,
+                'sign': sign_type,
+                'duration': duration,
+                'distance': distance,
+                'min_velocity': min_velocity,
+                'max_velocity': max_velocity,
+                'mean_velocity': mean_velocity,
+                'std_velocity': std_velocity,
+                'min_acc': min_acc,
+                'max_acc': max_acc,
+                'mean_acc': mean_acc,
+                'std_acc': std_acc,
+                'min_brake': min_brake,
+                'max_brake': max_brake,
+                'mean_brake': mean_brake,
+                'std_brake': std_brake
+                })
+    return pd.DataFrame(road_sign_event_stats)
