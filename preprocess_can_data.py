@@ -322,10 +322,7 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
                 lane_one_to_two = can_data_filtered[can_data_filtered['lane_number'] == 2].groupby((can_data_filtered['lane_number'] == 1).cumsum(), as_index=False)
                 overtaking_events_stats = pd.concat((overtaking_events_stats, get_overtaking_events(can_data_filtered, lane_one_to_two)), ignore_index=True)
             else:
-                turning_events_stats = get_turning_events(can_data_filtered)
-                turning_events_stats.insert(0, 'subject_id', subject_id)
-                turning_events_stats.insert(1, 'subject_state', state)
-                turning_events_stats.insert(2, 'subject_scenario', scenario)
+                turning_events_stats = get_turning_events(can_data_filtered, subject_id, state, scenario)
                 turning_event_data.append(turning_events_stats)
             
             overtaking_events_stats.insert(0, 'subject_id', subject_id)
