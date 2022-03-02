@@ -165,7 +165,7 @@ def merge_maneuvers(groups, idx):
         return merge_maneuvers(groups, idx+1)
 
 
-def get_turning_events(data):
+def get_turning_events(data, subject_id, subject_state, subject_scenario):
     test = data[(data['steer'] <= -10) | (data['steer'] >= 10)].index.values
     groups = [[test[0]]]
     for x in test[1:]:
@@ -228,10 +228,14 @@ def get_turning_events(data):
             'std_latvel': std_latvel
             })
     
-    return pd.DataFrame(turning_event_data)
+    df = pd.DataFrame(turning_event_data)
+    df.insert(0, 'subject_id', subject_id)
+    df.insert(1, 'subject_state', subject_state)
+    df.insert(2, 'subject_scenario', subject_scenario)
+    return df
 
 
-def get_road_sign_events(sign_info, data, sign_type):
+def get_road_sign_events(sign_info, data, sign_type, subject_id, subject_state, subject_scenario):
     distances = [[(xpos - x)**2 + (ypos - y)**2 for xpos, ypos in zip(data['xpos'], data['ypos'])]
                     for x, y in zip(sign_info['sign_xPos'], sign_info['sign_yPos'])]
     distances = np.array(distances)
@@ -241,8 +245,8 @@ def get_road_sign_events(sign_info, data, sign_type):
     road_sign_event_stats = []
     for i, idx in enumerate(indices_for_sign):
         if distances[i][idx] <= 50:
-            start = idx-150
-            end = idx+150
+            start = max(0, idx-150)
+            end = min(idx+150, data.tail(1).index.to_numpy()[0])
             timestamp = data.iloc[idx]['timestamp']
             duration = (data.iloc[end]['timestamp'] - data.iloc[start]['timestamp']).total_seconds()
             distance = data.iloc[start:end]['velocity'].mean() * duration
@@ -276,4 +280,8 @@ def get_road_sign_events(sign_info, data, sign_type):
                 'mean_brake': mean_brake,
                 'std_brake': std_brake
                 })
-    return pd.DataFrame(road_sign_event_stats)
+    df = pd.DataFrame(road_sign_event_stats)
+    df.insert(0, 'subject_id', subject_id)
+    df.insert(1, 'subject_state', subject_state)
+    df.insert(2, 'subject_scenario', subject_scenario)
+    return df
