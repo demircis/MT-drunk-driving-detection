@@ -29,7 +29,7 @@ def store_can_features(window_sizes):
     for key, signal in SIGNALS.items():
         for window_size in window_sizes:
             can_data_features = can_data.groupby(GROUPING_COLUMNS).apply(
-                lambda x: can_window_agg(x.set_index('timestamp')[GROUPING_COLUMNS + signal], window_size)
+                lambda x: can_window_agg(x.set_index('timestamp')[GROUPING_COLUMNS + signal], window_size, num_cores=10)
                 )
             
             can_data_features.to_parquet('out/can_data_features_{}_windowsize_{}s.parquet'.format(key, window_size))
