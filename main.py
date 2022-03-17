@@ -1,5 +1,5 @@
 from yaml import load, Loader
-from generate_can_features import store_can_features
+from generate_can_features import store_can_data_features
 from parse_scenario_information import parse_scenario_information
 from preprocess_can_data import do_preprocessing
 
@@ -16,4 +16,4 @@ if __name__ == '__main__':
         do_preprocessing(config.full_study, config.overwrite, config.data_freq)
 
     if config.generate_features:
-        store_can_features(config.window_sizes)
+        store_can_data_features(config.window_sizes)

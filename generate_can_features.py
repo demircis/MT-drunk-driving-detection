@@ -1,5 +1,7 @@
 import pandas as pd
-from flirt.stats import get_stat_features
+
+from get_features import get_features
+
 
 GROUPING_COLUMNS = ['subject_id', 'subject_state', 'subject_scenario']
 
@@ -18,11 +20,12 @@ SIGNALS = {'driver_behavior': DRIVER_BEHAVIOR, 'vehicle_behavior': VEHICLE_BEHAV
 
 def can_window_agg(data, window_length, data_freq=30, num_cores=0):
     feature_data = data.drop(columns=GROUPING_COLUMNS)
-    feature = get_stat_features(feature_data, window_length, window_step_size=1,
-                                data_frequency=data_freq, entropies=False, num_cores=num_cores)
+    feature = get_features(feature_data, window_length, num_cores=num_cores,
+                                step_size=data_freq)
     return feature
 
-def store_can_features(window_sizes):
+
+def store_can_data_features(window_sizes):
 
     can_data = pd.read_parquet('out/can_data.parquet')
 
@@ -33,4 +36,15 @@ def store_can_features(window_sizes):
                 )
             
             can_data_features.to_parquet('out/can_data_features_{}_windowsize_{}s.parquet'.format(key, window_size))
-        
+
+
+def store_can_event_features():
+
+    EVENTS = ['brake', 'brake_to_gas', 'gas', 'gas_to_brake', 'overtaking', 'road_sign', 'turning']
+
+    can_events_features = []
+    for e in EVENTS:
+        can_events_features.append(pd.read_parquet('out/can_data_{}_events.parquet'.format(e)))
+    can_events_features = pd.concat(can_events_features, axis=0)
+
+    #can_events_features.groupby(GROUPING_COLUMNS).to_parquet()

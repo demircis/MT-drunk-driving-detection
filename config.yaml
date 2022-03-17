@@ -2,9 +2,10 @@
 data_freq: 30
 full_study: True
 parse_scenario_info: False
-preprocess: False
-overwrite: False
-generate_features: True
+preprocess: True
+overwrite: True
+generate_features: False
 window_sizes: [60, 90, 120]
-classifier: 'random_forest'
+classifier: 'log_regression'
+plot_coef: True
 clf_mode: 'binary'

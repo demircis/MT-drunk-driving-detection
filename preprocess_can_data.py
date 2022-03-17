@@ -41,7 +41,7 @@ def split_signal_in_right_left(df, signal):
 def calculate_lane_pos(lanes_df, segment_id, latpos):
     lanes_in_segment = lanes_df.loc[lanes_df['segment_id'] == segment_id]
     if lanes_in_segment.empty:
-        return -1, np.nan, np.nan, np.nan
+        return np.nan, np.nan, np.nan, np.nan
     lanes_center = []
     lanes_left_edge = []
     lanes_right_edge = []
@@ -245,20 +245,20 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
 
             lane_info = [calculate_lane_pos(lanes_for_scenario, segment_id, latpos)
                         for segment_id, latpos in zip(can_data_filtered['segment_id'], can_data_filtered['latpos'])]
-            lane_info = np.array(lane_info)
+            lane_info = pd.DataFrame(lane_info)
 
-            can_data_filtered.loc[:, 'lane_number'] = lane_info[:, 0]
-            can_data_filtered.loc[:, 'lane_position'] = lane_info[:, 1]
-            can_data_filtered.loc[:, 'lane_distance_left_edge'] = lane_info[:, 2]
-            can_data_filtered.loc[:, 'lane_distance_right_edge'] = lane_info[:, 3]
+            can_data_filtered.loc[:, 'lane_number'] = lane_info.iloc[:, 0].interpolate(method='nearest').fillna(method='bfill').fillna(method='ffill')
+            can_data_filtered.loc[:, 'lane_position'] = lane_info.iloc[:, 1].interpolate(method='linear').fillna(method='bfill').fillna(method='ffill')
+            can_data_filtered.loc[:, 'lane_distance_left_edge'] = lane_info.iloc[:, 2].interpolate(method='linear').fillna(method='bfill').fillna(method='ffill')
+            can_data_filtered.loc[:, 'lane_distance_right_edge'] = lane_info.iloc[:, 3].interpolate(method='linear').fillna(method='bfill').fillna(method='ffill')
             can_data_filtered.loc[:, 'is_crossing_lane'] = ((can_data_filtered['lane_distance_left_edge'] < (CAR_WIDTH / 2.0))
                                                                 | (can_data_filtered['lane_distance_right_edge'] < (CAR_WIDTH / 2.0))).astype(int)
-            can_data_filtered.loc[:, 'lane_crossing'] = can_data_filtered['is_crossing_lane'].diff().abs()
+            can_data_filtered.loc[:, 'lane_crossing'] = can_data_filtered['is_crossing_lane'].diff().abs().fillna(method='bfill')
             can_data_filtered.loc[:, 'lane_switching'] = get_lane_switching(can_data_filtered)
             can_data_filtered.loc[:, 'is_crossing_lane_left'] = (can_data_filtered['lane_distance_left_edge'] < (CAR_WIDTH / 2.0)).astype(int)
             can_data_filtered.loc[:, 'is_crossing_lane_right'] = (can_data_filtered['lane_distance_right_edge'] < (CAR_WIDTH / 2.0)).astype(int)
-            can_data_filtered.loc[:, 'lane_crossing_left'] = (can_data_filtered['is_crossing_lane_left'].diff() == 1).astype(int)
-            can_data_filtered.loc[:, 'lane_crossing_right'] = (can_data_filtered['is_crossing_lane_right'].diff() == 1).astype(int)
+            can_data_filtered.loc[:, 'lane_crossing_left'] = (can_data_filtered['is_crossing_lane_left'].diff() == 1).astype(int).fillna(method='bfill')
+            can_data_filtered.loc[:, 'lane_crossing_right'] = (can_data_filtered['is_crossing_lane_right'].diff() == 1).astype(int).fillna(method='bfill')
             if scenario != 'highway':
                 can_data_filtered.loc[:, 'opp_lane_switching'] = get_lane_switching(can_data_filtered, '_left')
             else:
