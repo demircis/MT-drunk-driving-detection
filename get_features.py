@@ -9,9 +9,10 @@ from joblib import Parallel, delayed
 def get_features(data, epoch_width=60, num_cores=0, step_size="1S"):
     if not num_cores >= 1:
         num_cores = multiprocessing.cpu_count()
-    print('using # cores: ', num_cores)
+    #print('using # cores: ', num_cores)
 
     input_data = data.copy()
+    input_data.set_index('timestamp', inplace=True)
 
     start_time = input_data.index.min()
     end_time = input_data.index.max()
@@ -30,12 +31,14 @@ def get_features(data, epoch_width=60, num_cores=0, step_size="1S"):
 def get_sliding_window(data, epoch_width, i):
 
     min_timestamp = i
-    max_timestamp = min_timestamp + timedelta(seconds=epoch_width)
+    max_timestamp = min_timestamp + timedelta(milliseconds=epoch_width * 1000)
     results = {
         'datetime': min_timestamp,
     }
 
-    relevant_data = data.loc[(data.index >= min_timestamp) & (data.index < max_timestamp)]
+    relevant_data = data.loc[(data.index >= min_timestamp) & (data.index < min_timestamp)]
+    if epoch_width != 0:
+        relevant_data = data.loc[(data.index >= min_timestamp) & (data.index < max_timestamp)]
 
     for column in relevant_data.columns:
         column_results = get_stats(relevant_data[column], column)
@@ -44,7 +47,7 @@ def get_sliding_window(data, epoch_width, i):
     return results
 
 
-def get_stats(data, key_suffix=None):
+def get_stats(data, key_prefix=None):
     results = {
         'mean': np.nan,
         'std': np.nan,
@@ -82,8 +85,7 @@ def get_stats(data, key_suffix=None):
         results['rms'] = np.sqrt(results['energy'] / len(data))
         results['lineintegral'] = np.abs(np.diff(data)).sum()
 
-        if key_suffix is not None:
-            results = {k + '_' + key_suffix: v for k, v in results.items()}
-
+    if key_prefix is not None:
+        results = {key_prefix + '_' + k: v for k, v in results.items()}
 
     return results

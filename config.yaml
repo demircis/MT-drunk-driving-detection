@@ -7,5 +7,5 @@ overwrite: True
 generate_features: False
 window_sizes: [60, 90, 120]
 classifier: 'log_regression'
-plot_coef: True
+plot_coef: False
 clf_mode: 'binary'

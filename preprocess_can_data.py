@@ -224,11 +224,6 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
 
             can_data_filtered = filter_can_data_engine_on(can_data, timestamps_scenario)
 
-            can_data_filtered.insert(0, 'subject_id', subject_id)
-            can_data_filtered.insert(1, 'subject_state', state)
-            can_data_filtered.insert(2, 'subject_scenario', scenario)
-            can_data_filtered.reset_index(drop=True, inplace=True)
-
             can_data_filtered.loc[:, "indicator_right"] = (can_data_filtered["indicator"] == 1).astype(int)
             can_data_filtered.loc[:, "indicator_left"] = (can_data_filtered["indicator"] == 2).astype(int)
             can_data_filtered.drop(["indicator"], axis=1, inplace=True)
@@ -272,62 +267,74 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             can_data_filtered = do_derivation_of_signals(can_data_filtered, SIGNALS_DERIVE_ACCELERATION, '_acc', data_freq, '_vel')
             can_data_filtered = do_derivation_of_signals(can_data_filtered, SIGNALS_DERIVE_JERK, '_jerk', data_freq, '_acc')
 
+            can_data_event = can_data_filtered.copy()
+            can_data_filtered.insert(0, 'subject_id', subject_id)
+            can_data_filtered.insert(1, 'subject_state', state)
+            can_data_filtered.insert(2, 'subject_scenario', scenario)
+            can_data_filtered.reset_index(drop=True, inplace=True)
             data.append(can_data_filtered)
 
-            positive_brake_events = (can_data_filtered[can_data_filtered['brake'] > 0]
-                .groupby((can_data_filtered['brake'] == 0).cumsum(), as_index=False)
+            positive_brake_events = (can_data_event[can_data_event['brake'] > 0]
+                .groupby((can_data_event['brake'] == 0).cumsum(), as_index=False)
                 .filter(lambda x: (x['gas'] == 0).all())
-                .groupby((can_data_filtered['brake'] == 0).cumsum(), as_index=False))
-            zero_gas_events = can_data_filtered[can_data_filtered['gas'] == 0].groupby((can_data_filtered['gas'] > 0).cumsum(), as_index=False)
+                .groupby((can_data_event['brake'] == 0).cumsum(), as_index=False))
+            zero_gas_events = can_data_event[can_data_event['gas'] == 0].groupby((can_data_event['gas'] > 0).cumsum(), as_index=False)
             gas_to_brake_event = zero_gas_events.apply(gas_to_brake)
+            gas_to_brake_event.dropna(axis=0, how='all', inplace=True)
+            gas_to_brake_event.reset_index(level=1, inplace=True)
             gas_to_brake_event.insert(0, 'subject_id', subject_id)
             gas_to_brake_event.insert(1, 'subject_state', state)
             gas_to_brake_event.insert(2, 'subject_scenario', scenario)
-            brake_dist_covered = positive_brake_events.apply(distance_covered)
+            gas_to_brake_event.set_index(['subject_id', 'subject_state', 'subject_scenario', 'datetime'], drop=True, inplace=True)
             brake_events_stats = calculate_event_stats(positive_brake_events, 'brake')
-            brake_events_stats.columns = brake_events_stats.columns.map('_'.join)
-            brake_events_stats = pd.concat((brake_events_stats, brake_dist_covered), axis=1)
+            brake_events_stats.dropna(axis=0, how='all', inplace=True)
+            brake_events_stats.reset_index(level=1, inplace=True)
             brake_events_stats.insert(0, 'subject_id', subject_id)
             brake_events_stats.insert(1, 'subject_state', state)
             brake_events_stats.insert(2, 'subject_scenario', scenario)
-            brake_events_stats.reset_index(drop=True, inplace=True)
+            brake_events_stats.set_index(['subject_id', 'subject_state', 'subject_scenario', 'datetime'], drop=True, inplace=True)
 
             brake_event_data.append(brake_events_stats)
             gas_to_brake_event_data.append(gas_to_brake_event)
 
-            positive_gas_events = (can_data_filtered[can_data_filtered['gas'] > 0]
-                .groupby((can_data_filtered['gas'] == 0).cumsum(), as_index=False)
+            positive_gas_events = (can_data_event[can_data_event['gas'] > 0]
+                .groupby((can_data_event['gas'] == 0).cumsum(), as_index=False)
                 .filter(lambda x: (x['brake'] == 0).all())
-                .groupby((can_data_filtered['gas'] == 0).cumsum(), as_index=False))
-            zero_brake_events = can_data_filtered[can_data_filtered['brake'] == 0].groupby((can_data_filtered['brake'] > 0).cumsum(), as_index=False)
+                .groupby((can_data_event['gas'] == 0).cumsum(), as_index=False))
+            zero_brake_events = can_data_event[can_data_event['brake'] == 0].groupby((can_data_event['brake'] > 0).cumsum(), as_index=False)
             brake_to_gas_event = zero_brake_events.apply(brake_to_gas)
+            brake_to_gas_event.dropna(axis=0, how='all', inplace=True)
+            brake_to_gas_event.reset_index(level=1, inplace=True)
             brake_to_gas_event.insert(0, 'subject_id', subject_id)
             brake_to_gas_event.insert(1, 'subject_state', state)
             brake_to_gas_event.insert(2, 'subject_scenario', scenario)
-            gas_dist_covered = positive_gas_events.apply(distance_covered)
+            brake_to_gas_event.set_index(['subject_id', 'subject_state', 'subject_scenario', 'datetime'], drop=True, inplace=True)
             gas_events_stats = calculate_event_stats(positive_gas_events, 'gas')
-            gas_events_stats.columns = gas_events_stats.columns.map('_'.join)
-            gas_events_stats = pd.concat((gas_events_stats, gas_dist_covered), axis=1)
+            gas_events_stats.dropna(axis=0, how='all', inplace=True)
+            gas_events_stats.reset_index(level=1, inplace=True)
             gas_events_stats.insert(0, 'subject_id', subject_id)
             gas_events_stats.insert(1, 'subject_state', state)
             gas_events_stats.insert(2, 'subject_scenario', scenario)
-            gas_events_stats.reset_index(drop=True, inplace=True)
+            gas_events_stats.set_index(['subject_id', 'subject_state', 'subject_scenario', 'datetime'], drop=True, inplace=True)
 
             gas_event_data.append(gas_events_stats)
             brake_to_gas_event_data.append(brake_to_gas_event)
 
-            lane_zero_to_one = can_data_filtered[can_data_filtered['lane_number'] == 1].groupby((can_data_filtered['lane_number'] == 0).cumsum(), as_index=False)
-            overtaking_events_stats = get_overtaking_events(can_data_filtered, lane_zero_to_one)
+            lane_zero_to_one = can_data_event[can_data_event['lane_number'] == 1].groupby((can_data_event['lane_number'] == 0).cumsum(), as_index=False)
+            overtaking_events_stats = get_overtaking_events(can_data_event, lane_zero_to_one)
             if scenario == 'highway':
-                lane_one_to_two = can_data_filtered[can_data_filtered['lane_number'] == 2].groupby((can_data_filtered['lane_number'] == 1).cumsum(), as_index=False)
-                overtaking_events_stats = pd.concat((overtaking_events_stats, get_overtaking_events(can_data_filtered, lane_one_to_two)), ignore_index=True)
+                lane_one_to_two = can_data_event[can_data_event['lane_number'] == 2].groupby((can_data_event['lane_number'] == 1).cumsum(), as_index=False)
+                overtaking_events_stats = pd.concat((overtaking_events_stats, get_overtaking_events(can_data_event, lane_one_to_two)))
             else:
-                turning_events_stats = get_turning_events(can_data_filtered, subject_id, state, scenario)
+                turning_events_stats = get_turning_events(can_data_event, subject_id, state, scenario)
                 turning_event_data.append(turning_events_stats)
             
+            overtaking_events_stats.dropna(axis=0, how='all', inplace=True)
+            overtaking_events_stats.reset_index(level=1, inplace=True)
             overtaking_events_stats.insert(0, 'subject_id', subject_id)
             overtaking_events_stats.insert(1, 'subject_state', state)
             overtaking_events_stats.insert(2, 'subject_scenario', scenario)
+            overtaking_events_stats.set_index(['subject_id', 'subject_state', 'subject_scenario', 'datetime'], drop=True, inplace=True)
             overtaking_event_data.append(overtaking_events_stats)
 
             SPEED_LIMIT_30 = 1
@@ -352,12 +359,12 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             speed_limit_100 = signs_for_scenario[signs_for_scenario['signType'] == SPEED_LIMIT_100]
             speed_limit_120 = signs_for_scenario[signs_for_scenario['signType'] == SPEED_LIMIT_120]
 
-            speed_limit_30_events_stats = get_road_sign_events(speed_limit_30, can_data_filtered, 'speed_limit_30', subject_id, state, scenario)
-            speed_limit_50_events_stats = get_road_sign_events(speed_limit_50, can_data_filtered, 'speed_limit_50', subject_id, state, scenario)
-            speed_limit_60_events_stats = get_road_sign_events(speed_limit_60, can_data_filtered, 'speed_limit_60', subject_id, state, scenario)
-            speed_limit_80_events_stats = get_road_sign_events(speed_limit_80, can_data_filtered, 'speed_limit_80', subject_id, state, scenario)
-            speed_limit_100_events_stats = get_road_sign_events(speed_limit_100, can_data_filtered, 'speed_limit_100', subject_id, state, scenario)
-            speed_limit_120_events_stats = get_road_sign_events(speed_limit_120, can_data_filtered, 'speed_limit_120', subject_id, state, scenario)
+            speed_limit_30_events_stats = get_road_sign_events(speed_limit_30, can_data_event, 'speed_limit_30', subject_id, state, scenario)
+            speed_limit_50_events_stats = get_road_sign_events(speed_limit_50, can_data_event, 'speed_limit_50', subject_id, state, scenario)
+            speed_limit_60_events_stats = get_road_sign_events(speed_limit_60, can_data_event, 'speed_limit_60', subject_id, state, scenario)
+            speed_limit_80_events_stats = get_road_sign_events(speed_limit_80, can_data_event, 'speed_limit_80', subject_id, state, scenario)
+            speed_limit_100_events_stats = get_road_sign_events(speed_limit_100, can_data_event, 'speed_limit_100', subject_id, state, scenario)
+            speed_limit_120_events_stats = get_road_sign_events(speed_limit_120, can_data_event, 'speed_limit_120', subject_id, state, scenario)
 
             right_of_way = signs_for_scenario[(
                 (signs_for_scenario['signType'] == RIGHT_OF_WAY)
@@ -368,11 +375,11 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             ped_crossing_warnings = signs_for_scenario[signs_for_scenario['signType'] == PED_CROSSING_WARNING]
             ped_crossings = signs_for_scenario[signs_for_scenario['signType'] == PED_CROSSING]
 
-            right_of_way_events_stats = get_road_sign_events(right_of_way, can_data_filtered, 'right_of_way', subject_id, state, scenario)
-            stop_sign_events_stats = get_road_sign_events(stop_signs, can_data_filtered, 'stop', subject_id, state, scenario)
-            speed_bumps_events_stats = get_road_sign_events(speed_bumps, can_data_filtered, 'speed_bump', subject_id, state, scenario)
-            ped_crossing_warning_events_stats = get_road_sign_events(ped_crossing_warnings, can_data_filtered, 'pedestrian_crossing_warning', subject_id, state, scenario)
-            ped_crossings_events_stats = get_road_sign_events(ped_crossings, can_data_filtered, 'pedestrian_crossing', subject_id, state, scenario)
+            right_of_way_events_stats = get_road_sign_events(right_of_way, can_data_event, 'right_of_way', subject_id, state, scenario)
+            stop_sign_events_stats = get_road_sign_events(stop_signs, can_data_event, 'stop', subject_id, state, scenario)
+            speed_bumps_events_stats = get_road_sign_events(speed_bumps, can_data_event, 'speed_bump', subject_id, state, scenario)
+            ped_crossing_warning_events_stats = get_road_sign_events(ped_crossing_warnings, can_data_event, 'pedestrian_crossing_warning', subject_id, state, scenario)
+            ped_crossings_events_stats = get_road_sign_events(ped_crossings, can_data_event, 'pedestrian_crossing', subject_id, state, scenario)
 
             road_sign_events_stats = pd.concat((
                 speed_limit_30_events_stats,

@@ -140,8 +140,8 @@ def crop_video(video, crop_dimensions):
 def get_path_and_segment_ids(video, dimensions, data_timestamps, video_timestamp, data_freq):
     can_data_timestamps_ms = ((data_timestamps - video_timestamp) / datetime.timedelta(milliseconds=1)).to_numpy()
     nr_timestamps = len(can_data_timestamps_ms)
-    path_ids = np.array([None] * nr_timestamps)
-    segment_ids = np.array([None] * nr_timestamps)
+    path_ids = np.array([np.nan] * nr_timestamps)
+    segment_ids = np.array([np.nan] * nr_timestamps)
 
     sampling_indices = np.arange(0, nr_timestamps, data_freq * 5)
     last_index = nr_timestamps-1
@@ -157,7 +157,7 @@ def get_path_and_segment_ids(video, dimensions, data_timestamps, video_timestamp
     path_ids, segment_ids = get_ids_for_indices(path_ids, segment_ids, cropped_video, dimensions, can_data_timestamps_ms, sampling_indices)
 
     prev_none = -1
-    while len(segment_ids[segment_ids == None]) != 0:
+    while len(segment_ids[np.isnan(segment_ids)]) != 0:
         new_indices = []
         for i in range(len(sampling_indices)-1):
             left = sampling_indices[i]
@@ -174,11 +174,11 @@ def get_path_and_segment_ids(video, dimensions, data_timestamps, video_timestamp
         sampling_indices = np.concatenate((sampling_indices, new_indices))
         sampling_indices = np.sort(sampling_indices)
         path_ids, segment_ids = get_ids_for_indices(path_ids, segment_ids, cropped_video, dimensions, can_data_timestamps_ms, new_indices)
-        sampling_indices = sampling_indices[segment_ids[sampling_indices] != None]
+        sampling_indices = sampling_indices[np.invert(np.isnan(segment_ids[sampling_indices]))]
 
-        if len(segment_ids[segment_ids == None]) == prev_none:
+        if len(segment_ids[np.isnan(segment_ids)]) == prev_none:
             break
-        prev_none = len(segment_ids[segment_ids == None])
+        prev_none = len(segment_ids[np.isnan(segment_ids)])
 
     return path_ids, segment_ids
 
