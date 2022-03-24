@@ -5,7 +5,7 @@ import re
 import datetime
 import pytz
 import os
-from event_functions import brake_to_gas, calculate_event_stats, distance_covered, gas_to_brake, get_overtaking_events, get_road_sign_events, get_turning_events
+from event_functions import adjust_index, brake_to_gas, calculate_event_stats, gas_to_brake, get_overtaking_events, get_road_sign_events, get_turning_events
 from id_extraction import get_distance_based_path_and_segment_ids, get_path_and_segment_ids
 
 
@@ -281,18 +281,10 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             zero_gas_events = can_data_event[can_data_event['gas'] == 0].groupby((can_data_event['gas'] > 0).cumsum(), as_index=False)
             gas_to_brake_event = zero_gas_events.apply(gas_to_brake)
             gas_to_brake_event.dropna(axis=0, how='all', inplace=True)
-            gas_to_brake_event.reset_index(level=1, inplace=True)
-            gas_to_brake_event.insert(0, 'subject_id', subject_id)
-            gas_to_brake_event.insert(1, 'subject_state', state)
-            gas_to_brake_event.insert(2, 'subject_scenario', scenario)
-            gas_to_brake_event.set_index(['subject_id', 'subject_state', 'subject_scenario', 'datetime'], drop=True, inplace=True)
+            gas_to_brake_event = adjust_index(gas_to_brake_event, 1, subject_id, state, scenario)
             brake_events_stats = calculate_event_stats(positive_brake_events, 'brake')
             brake_events_stats.dropna(axis=0, how='all', inplace=True)
-            brake_events_stats.reset_index(level=1, inplace=True)
-            brake_events_stats.insert(0, 'subject_id', subject_id)
-            brake_events_stats.insert(1, 'subject_state', state)
-            brake_events_stats.insert(2, 'subject_scenario', scenario)
-            brake_events_stats.set_index(['subject_id', 'subject_state', 'subject_scenario', 'datetime'], drop=True, inplace=True)
+            brake_events_stats = adjust_index(brake_events_stats, 1, subject_id, state, scenario)
 
             brake_event_data.append(brake_events_stats)
             gas_to_brake_event_data.append(gas_to_brake_event)
@@ -304,18 +296,10 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             zero_brake_events = can_data_event[can_data_event['brake'] == 0].groupby((can_data_event['brake'] > 0).cumsum(), as_index=False)
             brake_to_gas_event = zero_brake_events.apply(brake_to_gas)
             brake_to_gas_event.dropna(axis=0, how='all', inplace=True)
-            brake_to_gas_event.reset_index(level=1, inplace=True)
-            brake_to_gas_event.insert(0, 'subject_id', subject_id)
-            brake_to_gas_event.insert(1, 'subject_state', state)
-            brake_to_gas_event.insert(2, 'subject_scenario', scenario)
-            brake_to_gas_event.set_index(['subject_id', 'subject_state', 'subject_scenario', 'datetime'], drop=True, inplace=True)
+            brake_to_gas_event = adjust_index(brake_to_gas_event, 1, subject_id, state, scenario)
             gas_events_stats = calculate_event_stats(positive_gas_events, 'gas')
             gas_events_stats.dropna(axis=0, how='all', inplace=True)
-            gas_events_stats.reset_index(level=1, inplace=True)
-            gas_events_stats.insert(0, 'subject_id', subject_id)
-            gas_events_stats.insert(1, 'subject_state', state)
-            gas_events_stats.insert(2, 'subject_scenario', scenario)
-            gas_events_stats.set_index(['subject_id', 'subject_state', 'subject_scenario', 'datetime'], drop=True, inplace=True)
+            gas_events_stats = adjust_index(gas_events_stats, 1, subject_id, state, scenario)
 
             gas_event_data.append(gas_events_stats)
             brake_to_gas_event_data.append(brake_to_gas_event)
@@ -330,11 +314,7 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
                 turning_event_data.append(turning_events_stats)
             
             overtaking_events_stats.dropna(axis=0, how='all', inplace=True)
-            overtaking_events_stats.reset_index(level=1, inplace=True)
-            overtaking_events_stats.insert(0, 'subject_id', subject_id)
-            overtaking_events_stats.insert(1, 'subject_state', state)
-            overtaking_events_stats.insert(2, 'subject_scenario', scenario)
-            overtaking_events_stats.set_index(['subject_id', 'subject_state', 'subject_scenario', 'datetime'], drop=True, inplace=True)
+            overtaking_events_stats = adjust_index(overtaking_events_stats, 1, subject_id, state, scenario)
             overtaking_event_data.append(overtaking_events_stats)
 
             SPEED_LIMIT_30 = 1

@@ -98,11 +98,7 @@ def get_turning_events(data, subject_id, subject_state, subject_scenario):
         return pd.DataFrame()
     df = pd.concat(turning_event_data, axis=0)
     df.dropna(axis=0, how='all', inplace=True)
-    df.reset_index(level=0, inplace=True)
-    df.insert(0, 'subject_id', subject_id)
-    df.insert(1, 'subject_state', subject_state)
-    df.insert(2, 'subject_scenario', subject_scenario)
-    df.set_index(['subject_id', 'subject_state', 'subject_scenario', 'datetime'], drop=True, inplace=True)
+    df = adjust_index(df, 0, subject_id, subject_state, subject_scenario)
     return df
 
 
@@ -127,9 +123,15 @@ def get_road_sign_events(sign_info, data, sign_type, subject_id, subject_state, 
         return pd.DataFrame()
     df = pd.concat(road_sign_event_stats, axis=0)
     df.dropna(axis=0, how='all', inplace=True)
-    df.reset_index(level=0, inplace=True)
-    df.insert(0, 'subject_id', subject_id)
-    df.insert(1, 'subject_state', subject_state)
-    df.insert(2, 'subject_scenario', subject_scenario)
-    df.set_index(['subject_id', 'subject_state', 'subject_scenario', 'datetime'], drop=True, inplace=True)
+    df = adjust_index(df, 0, subject_id, subject_state, subject_scenario)
+    return df
+
+
+def adjust_index(df, level, subject_id, subject_state, subject_scenario):
+    if not df.empty:
+        df.reset_index(level=level, inplace=True)
+        df.insert(0, 'subject_id', subject_id)
+        df.insert(1, 'subject_state', subject_state)
+        df.insert(2, 'subject_scenario', subject_scenario)
+        df.set_index(['subject_id', 'subject_state', 'subject_scenario', 'datetime'], drop=True, inplace=True)
     return df
