@@ -18,13 +18,6 @@ NAVI = ['dtoint', 'SpeedDif', 'speed_limit_exceeded']
 
 SIGNALS = {'driver_behavior': DRIVER_BEHAVIOR, 'vehicle_behavior': VEHICLE_BEHAVIOR, 'radar': RADAR, 'navi': NAVI}
 
-def can_window_agg(data, window_length, data_freq=30, num_cores=0):
-    feature_data = data.drop(columns=GROUPING_COLUMNS)
-    feature = get_features(feature_data, window_length, num_cores=num_cores,
-                                step_size=data_freq)
-    return feature
-
-
 def store_can_data_features(window_sizes):
 
     can_data = pd.read_parquet('out/can_data.parquet')
@@ -32,19 +25,7 @@ def store_can_data_features(window_sizes):
     for key, signal in SIGNALS.items():
         for window_size in window_sizes:
             can_data_features = can_data.groupby(GROUPING_COLUMNS).apply(
-                lambda x: can_window_agg(x.set_index('timestamp')[GROUPING_COLUMNS + signal], window_size, num_cores=10)
+                lambda x: get_features(x[['timestamp'] + signal], window_size, step_size=str(window_size) + 'S', num_cores=10)
                 )
             
-            can_data_features.to_parquet('out/can_data_features_{}_windowsize_{}s.parquet'.format(key, window_size))
-
-
-def store_can_event_features():
-
-    EVENTS = ['brake', 'brake_to_gas', 'gas', 'gas_to_brake', 'overtaking', 'road_sign', 'turning']
-
-    can_events_features = []
-    for e in EVENTS:
-        can_events_features.append(pd.read_parquet('out/can_data_{}_events.parquet'.format(e)))
-    can_events_features = pd.concat(can_events_features, axis=0)
-
-    #can_events_features.groupby(GROUPING_COLUMNS).to_parquet()
+            can_data_features.to_parquet('out/can_data_features_{}_windowsize_{}s_new.parquet'.format(key, window_size))
