@@ -43,7 +43,7 @@ def get_sliding_window(data, epoch_width, i):
         relevant_data = data.loc[(data.index >= min_timestamp) & (data.index < max_timestamp)]
 
     for column in relevant_data.columns:
-        column_results = get_stats(relevant_data[column], epoch_width, column)
+        column_results = get_stats(relevant_data[column], column)
         results.update(column_results)
 
     return results
