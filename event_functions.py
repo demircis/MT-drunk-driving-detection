@@ -3,7 +3,7 @@ import numpy as np
 
 from get_features import get_features
 
-def calculate_event_stats(events, signal):
+def calculate_event_stats(events):
     def duration(x):
         first = x.index.to_numpy()[0]
         last = x.index.to_numpy()[-1]

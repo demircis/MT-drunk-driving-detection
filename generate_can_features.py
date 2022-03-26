@@ -25,7 +25,7 @@ def store_can_data_features(window_sizes):
     for key, signal in SIGNALS.items():
         for window_size in window_sizes:
             can_data_features = can_data.groupby(GROUPING_COLUMNS).apply(
-                lambda x: get_features(x[['timestamp'] + signal], window_size, step_size=str(window_size) + 'S', num_cores=10)
+                lambda x: get_features(x[['timestamp'] + signal], window_size * 1000, num_cores=10)
                 )
             
             can_data_features.to_parquet('out/can_data_features_{}_windowsize_{}s_new.parquet'.format(key, window_size))

@@ -282,7 +282,7 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             gas_to_brake_event = zero_gas_events.apply(gas_to_brake)
             gas_to_brake_event.dropna(axis=0, how='all', inplace=True)
             gas_to_brake_event = adjust_index(gas_to_brake_event, 1, subject_id, state, scenario)
-            brake_events_stats = calculate_event_stats(positive_brake_events, 'brake')
+            brake_events_stats = calculate_event_stats(positive_brake_events)
             brake_events_stats.dropna(axis=0, how='all', inplace=True)
             brake_events_stats = adjust_index(brake_events_stats, 1, subject_id, state, scenario)
 
@@ -297,7 +297,7 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             brake_to_gas_event = zero_brake_events.apply(brake_to_gas)
             brake_to_gas_event.dropna(axis=0, how='all', inplace=True)
             brake_to_gas_event = adjust_index(brake_to_gas_event, 1, subject_id, state, scenario)
-            gas_events_stats = calculate_event_stats(positive_gas_events, 'gas')
+            gas_events_stats = calculate_event_stats(positive_gas_events)
             gas_events_stats.dropna(axis=0, how='all', inplace=True)
             gas_events_stats = adjust_index(gas_events_stats, 1, subject_id, state, scenario)
 
