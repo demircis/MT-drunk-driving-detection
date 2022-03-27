@@ -355,11 +355,11 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             ped_crossing_warnings = signs_for_scenario[signs_for_scenario['signType'] == PED_CROSSING_WARNING]
             ped_crossings = signs_for_scenario[signs_for_scenario['signType'] == PED_CROSSING]
 
-            right_of_way_events_stats = get_road_sign_events(right_of_way, can_data_event, 'right_of_way', subject_id, state, scenario)
-            stop_sign_events_stats = get_road_sign_events(stop_signs, can_data_event, 'stop', subject_id, state, scenario)
-            speed_bumps_events_stats = get_road_sign_events(speed_bumps, can_data_event, 'speed_bump', subject_id, state, scenario)
-            ped_crossing_warning_events_stats = get_road_sign_events(ped_crossing_warnings, can_data_event, 'pedestrian_crossing_warning', subject_id, state, scenario)
-            ped_crossings_events_stats = get_road_sign_events(ped_crossings, can_data_event, 'pedestrian_crossing', subject_id, state, scenario)
+            right_of_way_events_stats = get_road_sign_events(right_of_way, can_data_event, subject_id, state, scenario)
+            stop_sign_events_stats = get_road_sign_events(stop_signs, can_data_event, subject_id, state, scenario)
+            speed_bumps_events_stats = get_road_sign_events(speed_bumps, can_data_event, subject_id, state, scenario)
+            ped_crossing_warning_events_stats = get_road_sign_events(ped_crossing_warnings, can_data_event, subject_id, state, scenario)
+            ped_crossings_events_stats = get_road_sign_events(ped_crossings, can_data_event, subject_id, state, scenario)
 
             road_sign_events_stats = pd.concat((
                 speed_limit_30_events_stats,
