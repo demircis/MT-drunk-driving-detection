@@ -339,12 +339,12 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             speed_limit_100 = signs_for_scenario[signs_for_scenario['signType'] == SPEED_LIMIT_100]
             speed_limit_120 = signs_for_scenario[signs_for_scenario['signType'] == SPEED_LIMIT_120]
 
-            speed_limit_30_events_stats = get_road_sign_events(speed_limit_30, can_data_event, 'speed_limit_30', subject_id, state, scenario)
-            speed_limit_50_events_stats = get_road_sign_events(speed_limit_50, can_data_event, 'speed_limit_50', subject_id, state, scenario)
-            speed_limit_60_events_stats = get_road_sign_events(speed_limit_60, can_data_event, 'speed_limit_60', subject_id, state, scenario)
-            speed_limit_80_events_stats = get_road_sign_events(speed_limit_80, can_data_event, 'speed_limit_80', subject_id, state, scenario)
-            speed_limit_100_events_stats = get_road_sign_events(speed_limit_100, can_data_event, 'speed_limit_100', subject_id, state, scenario)
-            speed_limit_120_events_stats = get_road_sign_events(speed_limit_120, can_data_event, 'speed_limit_120', subject_id, state, scenario)
+            speed_limit_30_events_stats = get_road_sign_events(speed_limit_30, can_data_event, subject_id, state, scenario)
+            speed_limit_50_events_stats = get_road_sign_events(speed_limit_50, can_data_event, subject_id, state, scenario)
+            speed_limit_60_events_stats = get_road_sign_events(speed_limit_60, can_data_event, subject_id, state, scenario)
+            speed_limit_80_events_stats = get_road_sign_events(speed_limit_80, can_data_event, subject_id, state, scenario)
+            speed_limit_100_events_stats = get_road_sign_events(speed_limit_100, can_data_event, subject_id, state, scenario)
+            speed_limit_120_events_stats = get_road_sign_events(speed_limit_120, can_data_event, subject_id, state, scenario)
 
             right_of_way = signs_for_scenario[(
                 (signs_for_scenario['signType'] == RIGHT_OF_WAY)
