@@ -102,7 +102,7 @@ def get_turning_events(data, subject_id, subject_state, subject_scenario):
     return df
 
 
-def get_road_sign_events(sign_info, data, sign_type, subject_id, subject_state, subject_scenario):
+def get_road_sign_events(sign_info, data, subject_id, subject_state, subject_scenario):
     distances = [[(xpos - x)**2 + (ypos - y)**2 for xpos, ypos in zip(data['xpos'], data['ypos'])]
                     for x, y in zip(sign_info['sign_xPos'], sign_info['sign_yPos'])]
     distances = np.array(distances)

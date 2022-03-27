@@ -23,7 +23,10 @@ def get_features(data, epoch_width=60, num_cores=0, step_size="1S"):
     results = Parallel(n_jobs=num_cores, backend='multiprocessing')(
         delayed(get_sliding_window)(input_data, epoch_width=epoch_width, i=k) for k in tqdm(inputs))
     results = pd.DataFrame(list(filter(None, results)))  # filter out None values
-    results.insert(results.columns.get_loc('datetime')+1, 'duration', epoch_width / 1000.0)
+    if epoch_width == 0:
+        results.insert(results.columns.get_loc('datetime')+1, 'duration', np.nan)
+    else:
+        results.insert(results.columns.get_loc('datetime')+1, 'duration', epoch_width / 1000.0)
     results.set_index('datetime', inplace=True)
     results.sort_index(inplace=True)
 
