@@ -3,14 +3,15 @@ import numpy as np
 
 from get_features import get_features
 
+CORES = 2
+
 def calculate_event_stats(events):
     def duration(x):
         first = x.index.to_numpy()[0]
         last = x.index.to_numpy()[-1]
         return int((x['timestamp'].at[last] - x['timestamp'].at[first]).total_seconds() * 1000)
 
-      
-    return events.apply(lambda x: get_features(x, duration(x), num_cores=1, step_size=str(duration(x)) + 'ms' if duration(x) != 0 else '1S'))
+    return events.apply(lambda x: get_features(x, duration(x), num_cores=CORES, step_size=str(duration(x)+1) + 'ms' if duration(x) != 0 else '1S'))
 
 
 def brake_to_gas(x):
@@ -20,10 +21,9 @@ def brake_to_gas(x):
         ind = gas.index.to_numpy()[0]
         first = x['timestamp'].index.to_numpy()[0]
         duration = int((x['timestamp'].at[ind] - x['timestamp'].at[first]).total_seconds() * 1000)
-    if duration != 0:
-        return get_features(x, duration, num_cores=1, step_size=str(duration) + 'ms')
-    else:
-        return get_features(x, duration, num_cores=1)
+        if duration != 0:
+            return get_features(x.loc[first:ind], duration, num_cores=CORES, step_size=str(duration+1) + 'ms')
+    return get_features(x, duration, num_cores=CORES)
 
 
 def gas_to_brake(x):
@@ -33,10 +33,9 @@ def gas_to_brake(x):
         ind = brake.index.to_numpy()[0]
         first = x['timestamp'].index.to_numpy()[0]
         duration = int((x['timestamp'].at[ind] - x['timestamp'].at[first]).total_seconds() * 1000)
-    if duration != 0:
-        return get_features(x, duration, num_cores=1, step_size=str(duration) + 'ms')
-    else:
-        return get_features(x, duration, num_cores=1)
+        if duration != 0:
+            return get_features(x.loc[first:ind], duration, num_cores=CORES, step_size=str(duration+1) + 'ms')
+    return get_features(x, duration, num_cores=CORES)
 
 
 def distance_covered(x):
@@ -57,9 +56,9 @@ def get_overtaking_events(data, groupby):
             end = min(group.index.to_numpy()[-1] + 150, data.shape[0]-1)
             duration = int((data.iloc[end]['timestamp'] - data.iloc[start]['timestamp']).total_seconds() * 1000)
         if duration != 0:
-            return get_features(data.iloc[start:end], duration, num_cores=1, step_size=str(duration) + 'ms')
+            return get_features(data.iloc[start:end], duration, num_cores=CORES, step_size=str(duration+1) + 'ms')
         else:
-            return get_features(data.iloc[start:end], duration, num_cores=1)
+            return get_features(data.iloc[start:end], duration, num_cores=CORES)
     return groupby.apply(overtaking_event)
 
 
@@ -91,9 +90,9 @@ def get_turning_events(data, subject_id, subject_state, subject_scenario):
         end = maneuver_indices[-1]
         duration = int((data.loc[end, 'timestamp'] - data.loc[start, 'timestamp']).total_seconds() * 1000)
         if duration != 0:
-            turning_event_data.append(get_features(data.loc[start:end], duration, num_cores=1, step_size=str(duration) + 'ms'))
+            turning_event_data.append(get_features(data.loc[start:end], duration, num_cores=CORES, step_size=str(duration+1) + 'ms'))
         else:
-            turning_event_data.append(get_features(data.loc[start:end], duration, num_cores=1))
+            turning_event_data.append(get_features(data.loc[start:end], duration, num_cores=CORES))
     if len(turning_event_data) == 0:
         return pd.DataFrame()
     df = pd.concat(turning_event_data, axis=0)
@@ -116,9 +115,9 @@ def get_road_sign_events(sign_info, data, subject_id, subject_state, subject_sce
             end = min(idx+150, data.shape[0]-1)
             duration = int((data.iloc[end]['timestamp'] - data.iloc[start]['timestamp']).total_seconds() * 1000)
             if duration != 0:
-                road_sign_event_stats.append(get_features(data.iloc[start:end], duration, num_cores=1, step_size=str(duration) + 'ms'))
+                road_sign_event_stats.append(get_features(data.iloc[start:end], duration, num_cores=CORES, step_size=str(duration+1) + 'ms'))
             else:
-                road_sign_event_stats.append(get_features(data.iloc[start:end], duration, num_cores=1))
+                road_sign_event_stats.append(get_features(data.iloc[start:end], duration, num_cores=CORES))
     if len(road_sign_event_stats) == 0:
         return pd.DataFrame()
     df = pd.concat(road_sign_event_stats, axis=0)
