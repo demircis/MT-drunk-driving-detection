@@ -1,13 +1,13 @@
 import matplotlib.pyplot as plt
 
-def create_plot(nrows=None, ncols=None, sharex=False, sharey=False, constrained_layout=False):
-    if nrows is None and ncols is None:
+def create_plot(nrows=1, ncols=1, sharex=False, sharey=False, constrained_layout=False):
+    if nrows == 1 and ncols == 1:
         fig, ax = plt.subplots(sharex=sharex, sharey=sharey, constrained_layout=constrained_layout)
         return fig, [ax]
-    elif nrows is None:
+    elif nrows == 1 and ncols > 1:
         fig, axes = plt.subplots(nrows=1, ncols=ncols, sharex=sharex, sharey=sharey, constrained_layout=constrained_layout)
         return fig, axes
-    elif ncols is None:
+    elif ncols == 1 and nrows > 1:
         fig, axes = plt.subplots(nrows=nrows, ncols=1, sharex=sharex, sharey=sharey, constrained_layout=constrained_layout)
         return fig, axes
     else:

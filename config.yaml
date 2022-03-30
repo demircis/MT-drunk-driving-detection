@@ -4,7 +4,7 @@ full_study: True
 parse_scenario_info: False
 preprocess: True
 overwrite: True
-generate_features: False
+generate_features: True
 window_sizes: [60, 90, 120]
 classifier: 'log_regression'
 plot_coef: False
