@@ -5,7 +5,8 @@ parse_scenario_info: False
 preprocess: True
 overwrite: True
 generate_features: True
-window_sizes: [60, 90, 120]
+window_sizes: [120]
+overlap_percentages: [null]
 classifier: 'log_regression'
 plot_coef: False
 clf_mode: 'binary'
