@@ -81,7 +81,9 @@ def get_lane_switching(data, direction=''):
         counts = data.iloc[row.name:row.name+150]['lane_number'].diff().abs().value_counts()
         return (counts[1] == 1).astype(int) if 1 in counts else 0
     lane_switching = data[data['lane_crossing'+direction] == 1].apply(calc_lane_switching, axis=1)
-    lane_switching = lane_switching.reindex(list(range(data.index.min(), data.index.max()+1)), fill_value=0)
+    if lane_switching.empty:
+        lane_switching = pd.Series()
+    lane_switching = lane_switching.reindex(data.index, fill_value=0)
     return lane_switching
 
 
