@@ -38,9 +38,9 @@ def split_signal_in_right_left(df, signal):
     return df
 
 
-def calculate_lane_pos(lanes_df, segment_id, latpos):
+def calculate_lane_pos(lanes_df, segment_id, latpos, dtoint):
     lanes_in_segment = lanes_df.loc[lanes_df['segment_id'] == segment_id]
-    if lanes_in_segment.empty:
+    if lanes_in_segment.empty or dtoint < 0:
         return np.nan, np.nan, np.nan, np.nan
     lanes_center = []
     lanes_left_edge = []
@@ -239,7 +239,7 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
                 can_data_filtered.loc[:, 'segment_id'] = segment_ids
 
             lane_info = [calculate_lane_pos(lanes_for_scenario, segment_id, latpos)
-                        for segment_id, latpos in zip(can_data_filtered['segment_id'], can_data_filtered['latpos'])]
+                        for segment_id, latpos in zip(can_data_filtered['segment_id'], can_data_filtered['latpos'], can_data_filtered['dtoint'])]
             lane_info = pd.DataFrame(lane_info)
 
             can_data_filtered.loc[:, 'lane_number'] = lane_info.iloc[:, 0].interpolate(method='nearest').fillna(method='bfill').fillna(method='ffill')
@@ -339,12 +339,12 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             speed_limit_100 = signs_for_scenario[signs_for_scenario['signType'] == SPEED_LIMIT_100]
             speed_limit_120 = signs_for_scenario[signs_for_scenario['signType'] == SPEED_LIMIT_120]
 
-            speed_limit_30_events_stats = get_road_sign_events(speed_limit_30, can_data_event, subject_id, state, scenario)
-            speed_limit_50_events_stats = get_road_sign_events(speed_limit_50, can_data_event, subject_id, state, scenario)
-            speed_limit_60_events_stats = get_road_sign_events(speed_limit_60, can_data_event, subject_id, state, scenario)
-            speed_limit_80_events_stats = get_road_sign_events(speed_limit_80, can_data_event, subject_id, state, scenario)
-            speed_limit_100_events_stats = get_road_sign_events(speed_limit_100, can_data_event, subject_id, state, scenario)
-            speed_limit_120_events_stats = get_road_sign_events(speed_limit_120, can_data_event, subject_id, state, scenario)
+            speed_limit_30_events_stats = get_road_sign_events(speed_limit_30, can_data_event, SPEED_LIMIT_30, subject_id, state, scenario)
+            speed_limit_50_events_stats = get_road_sign_events(speed_limit_50, can_data_event, SPEED_LIMIT_50, subject_id, state, scenario)
+            speed_limit_60_events_stats = get_road_sign_events(speed_limit_60, can_data_event, SPEED_LIMIT_60, subject_id, state, scenario)
+            speed_limit_80_events_stats = get_road_sign_events(speed_limit_80, can_data_event, SPEED_LIMIT_80, subject_id, state, scenario)
+            speed_limit_100_events_stats = get_road_sign_events(speed_limit_100, can_data_event, SPEED_LIMIT_100, subject_id, state, scenario)
+            speed_limit_120_events_stats = get_road_sign_events(speed_limit_120, can_data_event, SPEED_LIMIT_120, subject_id, state, scenario)
 
             right_of_way = signs_for_scenario[(
                 (signs_for_scenario['signType'] == RIGHT_OF_WAY)
@@ -355,11 +355,11 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
             ped_crossing_warnings = signs_for_scenario[signs_for_scenario['signType'] == PED_CROSSING_WARNING]
             ped_crossings = signs_for_scenario[signs_for_scenario['signType'] == PED_CROSSING]
 
-            right_of_way_events_stats = get_road_sign_events(right_of_way, can_data_event, subject_id, state, scenario)
-            stop_sign_events_stats = get_road_sign_events(stop_signs, can_data_event, subject_id, state, scenario)
-            speed_bumps_events_stats = get_road_sign_events(speed_bumps, can_data_event, subject_id, state, scenario)
-            ped_crossing_warning_events_stats = get_road_sign_events(ped_crossing_warnings, can_data_event, subject_id, state, scenario)
-            ped_crossings_events_stats = get_road_sign_events(ped_crossings, can_data_event, subject_id, state, scenario)
+            right_of_way_events_stats = get_road_sign_events(right_of_way, can_data_event, RIGHT_OF_WAY, subject_id, state, scenario)
+            stop_sign_events_stats = get_road_sign_events(stop_signs, can_data_event, STOP_SIGN, subject_id, state, scenario)
+            speed_bumps_events_stats = get_road_sign_events(speed_bumps, can_data_event, SPEED_BUMP, subject_id, state, scenario)
+            ped_crossing_warning_events_stats = get_road_sign_events(ped_crossing_warnings, can_data_event, PED_CROSSING_WARNING, subject_id, state, scenario)
+            ped_crossings_events_stats = get_road_sign_events(ped_crossings, can_data_event, PED_CROSSING, subject_id, state, scenario)
 
             road_sign_events_stats = pd.concat((
                 speed_limit_30_events_stats,

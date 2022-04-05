@@ -75,9 +75,9 @@ def merge_maneuvers(groups, idx):
 
 
 def get_turning_events(data, subject_id, subject_state, subject_scenario):
-    test = data[(data['steer'] <= -10) | (data['steer'] >= 10)].index.values
-    groups = [[test[0]]]
-    for x in test[1:]:
+    turning = data[(data['steer'] <= -15) | (data['steer'] >= 15)].index.values
+    groups = [[turning[0]]]
+    for x in turning[1:]:
         if x == groups[-1][-1] + 1:
             groups[-1].append(x)
         else:
@@ -101,7 +101,7 @@ def get_turning_events(data, subject_id, subject_state, subject_scenario):
     return df
 
 
-def get_road_sign_events(sign_info, data, subject_id, subject_state, subject_scenario):
+def get_road_sign_events(sign_info, data, sign_type, subject_id, subject_state, subject_scenario):
     distances = [[(xpos - x)**2 + (ypos - y)**2 for xpos, ypos in zip(data['xpos'], data['ypos'])]
                     for x, y in zip(sign_info['sign_xPos'], sign_info['sign_yPos'])]
     distances = np.array(distances)
@@ -123,6 +123,7 @@ def get_road_sign_events(sign_info, data, subject_id, subject_state, subject_sce
     df = pd.concat(road_sign_event_stats, axis=0)
     df.dropna(axis=0, how='all', inplace=True)
     df = adjust_index(df, 0, subject_id, subject_state, subject_scenario)
+    df.insert(1, 'sign_type', sign_type)
     return df
 
 

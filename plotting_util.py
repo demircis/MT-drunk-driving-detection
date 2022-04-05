@@ -29,23 +29,23 @@ def set_ax_xlimits(ax, xlim_min, xlim_max):
 def set_ax_ylimits(ax, ylim_min, ylim_max):
     ax.set_ylim(ymin=ylim_min, ymax=ylim_max)
 
-def set_ax_axis_labels(ax, x_label="", y_label="", font_size=14):
+def set_ax_axis_labels(ax, x_label="", y_label="", font_size=12):
     ax.set_xlabel(x_label, fontsize=font_size)
     ax.set_ylabel(y_label, fontsize=font_size)
 
 def set_ax_title(ax, title, font_size=14, font_weight="normal", loc="center", pad=5):
     ax.set_title(title, fontsize=font_size, fontweight=font_weight, loc=loc, pad=pad)
 
-def set_fig_title(fig, title, font_size=14, font_weight="normal", ha="center", va="top"):
+def set_fig_title(fig, title, font_size=16, font_weight="normal", ha="center", va="top"):
     fig.suptitle(title, fontsize=font_size, fontweight=font_weight, ha=ha, va=va)
 
-def set_fig_xlabel(fig, xlabel='', xpos=0.5, ypos=0.01, font_size=12, font_weight="normal", ha="center", va="bottom"):
+def set_fig_xlabel(fig, xlabel='', xpos=0.5, ypos=0.01, font_size=14, font_weight="normal", ha="center", va="bottom"):
     fig.supxlabel(t=xlabel, x=xpos, y=ypos, fontsize=font_size, fontweight=font_weight, ha=ha, va=va)
 
-def set_fig_ylabel(fig, ylabel='', xpos=0.02, ypos=0.5, font_size=12, font_weight="normal", ha="left", va="center"):
+def set_fig_ylabel(fig, ylabel='', xpos=0.02, ypos=0.5, font_size=14, font_weight="normal", ha="left", va="center"):
     fig.supylabel(t=ylabel, x=xpos, y=ypos, fontsize=font_size, fontweight=font_weight, ha=ha, va=va)
 
-def set_plot_title(title, font_size=14, font_weight="normal", loc="center", pad=5):
+def set_plot_title(title, font_size=16, font_weight="normal", loc="center", pad=5):
     plt.title(title, fontsize=font_size, fontweight=font_weight, loc=loc, pad=pad)
 
 def set_ax_xticks(ax, xticks, xlabels, rotation=0):
@@ -54,7 +54,7 @@ def set_ax_xticks(ax, xticks, xlabels, rotation=0):
 def set_ax_yticks(ax, yticks, ylabels, rotation=0):
     ax.set_yticks(yticks, ylabels, rotation=rotation)
     
-def set_ax_ticks_size(ax, size=14):
+def set_ax_ticks_size(ax, size=12):
     ax.set_xticks(fontsize=size)
     ax.set_yticks(fontsize=size)
     

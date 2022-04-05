@@ -7,7 +7,7 @@ import multiprocessing
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
-def get_features(data, epoch_width=60, num_cores=0, step_size="1S"):
+def get_features(data, epoch_width, num_cores=0, step_size="1S"):
     if not num_cores >= 1:
         num_cores = multiprocessing.cpu_count()
     #print('using # cores: ', num_cores)
