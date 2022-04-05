@@ -238,8 +238,8 @@ def do_preprocessing(full_study, overwrite, data_freq=30):
                 can_data_filtered.loc[:, 'path_id'] = path_ids
                 can_data_filtered.loc[:, 'segment_id'] = segment_ids
 
-            lane_info = [calculate_lane_pos(lanes_for_scenario, segment_id, latpos)
-                        for segment_id, latpos in zip(can_data_filtered['segment_id'], can_data_filtered['latpos'], can_data_filtered['dtoint'])]
+            lane_info = [calculate_lane_pos(lanes_for_scenario, segment_id, latpos, dtoint)
+                        for segment_id, latpos, dtoint in zip(can_data_filtered['segment_id'], can_data_filtered['latpos'], can_data_filtered['dtoint'])]
             lane_info = pd.DataFrame(lane_info)
 
             can_data_filtered.loc[:, 'lane_number'] = lane_info.iloc[:, 0].interpolate(method='nearest').fillna(method='bfill').fillna(method='ffill')
