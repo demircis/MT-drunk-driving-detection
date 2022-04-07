@@ -5,7 +5,7 @@ import re
 import datetime
 import pytz
 import os
-from event_functions import adjust_index, brake_to_gas, calculate_event_stats, gas_to_brake, get_overtaking_events, get_road_sign_events, get_turning_events
+from event_functions import adjust_index, brake_to_gas, calculate_event_stats, gas_to_brake, get_overtaking_events, get_road_sign_events, get_turning_events, validate_start_end_indices
 from id_extraction import get_distance_based_path_and_segment_ids, get_path_and_segment_ids
 
 
@@ -78,7 +78,8 @@ def do_derivation_of_signals(df, signals, suffix, frequency_hz=None, replace_suf
 def get_lane_switching(data, direction=''):
     def calc_lane_switching(row):
         # check 5 seconds after lane crossing started if the lane number changes exactly once to indicate intended lane switching
-        counts = data.iloc[row.name:row.name+150]['lane_number'].diff().abs().value_counts()
+        start, end = validate_start_end_indices(data, row.name, row.name+150)
+        counts = data.loc[start:end]['lane_number'].diff().abs().value_counts()
         return (counts[1] == 1).astype(int) if 1 in counts else 0
     lane_switching = data[data['lane_crossing'+direction] == 1].apply(calc_lane_switching, axis=1)
     if lane_switching.empty:

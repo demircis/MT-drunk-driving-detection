@@ -38,27 +38,19 @@ def gas_to_brake(x):
     return get_features(x, duration, num_cores=CORES)
 
 
-def distance_covered(x):
-    if not x.empty:
-        first = x['timestamp'].index.to_numpy()[0]
-        last = x['timestamp'].index.to_numpy()[-1]
-        return pd.Series({'distance_covered': x['velocity'].mean() * (x['timestamp'].at[last] - x['timestamp'].at[first]).total_seconds()})
-    else:
-        return pd.Series({'distance_covered': np.nan})
-
-
 def get_overtaking_events(data, groupby):
     def overtaking_event(group):
         # 5 seconds before and after lane switch
         duration = 0
         if not (group.head(1).empty or group.tail(1).empty):
-            start = max(group.index.to_numpy()[0] - 150, 0)
-            end = min(group.index.to_numpy()[-1] + 150, data.shape[0]-1)
-            duration = int((data.iloc[end]['timestamp'] - data.iloc[start]['timestamp']).total_seconds() * 1000)
+            start_idx = group.index.to_numpy()[0] - 150
+            end_idx = group.index.to_numpy()[-1] + 150
+            start, end = validate_start_end_indices(data, start_idx, end_idx)
+            duration = int((data.loc[end]['timestamp'] - data.loc[start]['timestamp']).total_seconds() * 1000)
         if duration != 0:
-            return get_features(data.iloc[start:end], duration, num_cores=CORES, step_size=str(duration+1) + 'ms')
+            return get_features(data.loc[start:end], duration, num_cores=CORES, step_size=str(duration+1) + 'ms')
         else:
-            return get_features(data.iloc[start:end], duration, num_cores=CORES)
+            return get_features(data.loc[start:end], duration, num_cores=CORES)
     return groupby.apply(overtaking_event)
 
 
@@ -75,7 +67,7 @@ def merge_maneuvers(groups, idx):
 
 
 def get_turning_events(data, subject_id, subject_state, subject_scenario):
-    turning = data[(data['steer'] <= -15) | (data['steer'] >= 15)].index.values
+    turning = data[(data['steer'] <= -30) | (data['steer'] >= 30)].index.values
     groups = [[turning[0]]]
     for x in turning[1:]:
         if x == groups[-1][-1] + 1:
@@ -88,7 +80,7 @@ def get_turning_events(data, subject_id, subject_state, subject_scenario):
     for maneuver_indices in maneuvers:
         start = maneuver_indices[0]
         end = maneuver_indices[-1]
-        duration = int((data.loc[end, 'timestamp'] - data.loc[start, 'timestamp']).total_seconds() * 1000)
+        duration = int((data.loc[end]['timestamp'] - data.loc[start]['timestamp']).total_seconds() * 1000)
         if duration != 0:
             turning_event_data.append(get_features(data.loc[start:end], duration, num_cores=CORES, step_size=str(duration+1) + 'ms'))
         else:
@@ -109,15 +101,17 @@ def get_road_sign_events(sign_info, data, sign_type, subject_id, subject_state, 
         return pd.DataFrame()
     indices_for_sign = np.argmin(distances, axis=1)
     road_sign_event_stats = []
-    for i, idx in enumerate(indices_for_sign):
-        if distances[i][idx] <= 50:
-            start = max(0, idx-150)
-            end = min(idx+150, data.shape[0]-1)
-            duration = int((data.iloc[end]['timestamp'] - data.iloc[start]['timestamp']).total_seconds() * 1000)
+    for i, min_idx in enumerate(indices_for_sign):
+        if distances[i][min_idx] <= 50:
+            idx = data.index.to_numpy()[min_idx]
+            start_idx = idx-150
+            end_idx = idx+150
+            start, end = validate_start_end_indices(data, start_idx, end_idx)
+            duration = int((data.loc[end]['timestamp'] - data.loc[start]['timestamp']).total_seconds() * 1000)
             if duration != 0:
-                road_sign_event_stats.append(get_features(data.iloc[start:end], duration, num_cores=CORES, step_size=str(duration+1) + 'ms'))
+                road_sign_event_stats.append(get_features(data.loc[start:end], duration, num_cores=CORES, step_size=str(duration+1) + 'ms'))
             else:
-                road_sign_event_stats.append(get_features(data.iloc[start:end], duration, num_cores=CORES))
+                road_sign_event_stats.append(get_features(data.loc[start:end], duration, num_cores=CORES))
     if len(road_sign_event_stats) == 0:
         return pd.DataFrame()
     df = pd.concat(road_sign_event_stats, axis=0)
@@ -135,3 +129,19 @@ def adjust_index(df, level, subject_id, subject_state, subject_scenario):
         df.insert(2, 'subject_scenario', subject_scenario)
         df.set_index(['subject_id', 'subject_state', 'subject_scenario', 'datetime'], drop=True, inplace=True)
     return df
+
+
+def validate_start_end_indices(data, start_idx, end_idx):
+    start = start_idx
+    end = end_idx
+    if start_idx not in data.index:
+        if data.index[data.index > start_idx].empty:
+            start = data.index.max()
+        else:
+            start = data.index[data.index > start_idx].min()
+    if end_idx not in data.index:
+        if data.index[data.index < end_idx].empty:
+            end = data.index.min()
+        else:
+            end = data.index[data.index < end_idx].max()
+    return start, end
