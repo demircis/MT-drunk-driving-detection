@@ -88,10 +88,7 @@ def get_lane_switching(data, direction=''):
     return lane_switching
 
 
-def do_preprocessing(full_study, overwrite, data_freq=30):
-    if glob.glob('out/can_data.parquet') and not overwrite:
-        return
-
+def do_preprocessing(full_study, data_freq=30):
     if os.path.exists('out/error_digits.txt'):
         os.remove('out/error_digits.txt')
     
