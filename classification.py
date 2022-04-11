@@ -3,15 +3,15 @@ import pandas as pd
 import numpy as np
 from sklearnex import patch_sklearn
 patch_sklearn()
-from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
-from xgboost import XGBClassifier
+from xgboost import XGBRFClassifier
 from mlxtend.feature_selection import SequentialFeatureSelector
 from sklearn.model_selection import cross_validate
 from sklearn.model_selection import LeaveOneGroupOut
+
+random_state = 42
 
 from yaml import load, Loader
 from bunch import Bunch
@@ -28,33 +28,31 @@ SIGNAL_COMBOS = [['driver_behavior', 'vehicle_behavior'], ['driver_behavior', 'v
 EVENTS = ['brake', 'brake_to_gas', 'gas', 'gas_to_brake', 'overtaking', 'road_sign', 'turning']
 
 SELECTED_FEATURES = [
-    'gas',
-    'brake',
-    'SteerSpeed',
-    'gas_vel',
+    'brake_jerk',
     'brake_vel',
+    'gas',
     'gas_acc',
     'gas_jerk',
-    'acc',
-    'acc_jerk',
-    'lat_vel',
-    'lane_position',
-    'lane_crossing',
-    'is_crossing_lane_left',
-    'is_crossing_lane_right',
-    'Ttc',
-    'TtcOpp',
-    'Thw',
-    'Dhw',
+    'gas_vel',
+    'SteerSpeed',
+    'SteerSpeed_acc',
+    'SteerSpeed_jerk',
+    'speed_limit_exceeded',
     'SpeedDif',
-    'speed_limit_exceeded'
+    'is_crossing_lane',
+    'lane_distance_left_edge',
+    'lane_distance_right_edge',
+    'lane_position',
+    'acc_jerk',
+    'latvel_jerk',
+    'YawRate',
+    'YawRate_acc',
+    'YawRate_jerk'
 ]
 
-#STATS = ['mean', 'std', 'min','max', 'q5', 'q95', 'range', 'iqrange', 'iqrange_5_95', 'sum', 'energy', 'skewness',
-         #'kurtosis', 'peaks', 'rms', 'lineintegral', 'n_above_mean', 'n_below_mean', 'n_sign_changes', 'ptp']
-STATS = ['mean', 'std', 'skewness', 'kurtosis', 'rms', 'q5', 'q95', 'min', 'max', 'peaks']
+STATS = ['mean', 'std', 'skewness', 'kurtosis', 'rms', 'q5', 'q95', 'min', 'max', 'peaks', 'range', 'iqrange', 'iqrange_5_95']
 
-SUM_COLUMNS = ['lane_crossing', 'is_crossing_lane_left', 'is_crossing_lane_right', 'speed_limit_exceeded']
+SUM_COLUMNS = ['lane_crossing', 'is_crossing_lane', 'is_crossing_lane_left', 'is_crossing_lane_right', 'speed_limit_exceeded']
 
 SCENARIOS = ['highway', 'rural', 'town']
 
@@ -62,8 +60,8 @@ LOGO = LeaveOneGroupOut()
 
 
 def do_sliding_window_classification(window_sizes, overlap_percentages, classifier):
-    for i, window_size in enumerate(window_sizes):
-        for j, combo in enumerate([SIGNAL_COMBOS[-1]]):
+    for window_size in window_sizes:
+        for combo in SIGNAL_COMBOS:
             signal_string = ''
             can_data_features = []
             for signal in combo:
@@ -93,50 +91,27 @@ def do_sliding_window_classification(window_sizes, overlap_percentages, classifi
                     step = window_size - int(overlap_percentage * window_size)
                 can_data_features_step = can_data_features[(can_data_features.groupby(['subject_id', 'subject_state', 'subject_scenario']).cumcount() % step) == 0]
 
-                for k, scenario in enumerate(SCENARIOS):
+                for scenario in SCENARIOS:
                     print('signals: {}, window size: {}s, step size: {}s ({}), scenario: {}'.format(
                         signal_string, window_size, step, overlap_percentage, scenario
                         ))
 
                     can_data_features_bin = can_data_features_step.loc[:, :, scenario, :]
 
-                    groups = list(can_data_features.index.get_level_values('subject_id'))
+                    groups = list(can_data_features_bin.index.get_level_values('subject_id'))
                     subject_ids = np.unique(groups)
                     
-                    X = can_data_features.drop(columns='label').to_numpy(dtype=np.float64)
+                    X, y, scale = prepare_dataset(can_data_features_bin)
+
+                    clf = configure_classifier(classifier)
                     
-                    y = can_data_features['label'].to_numpy()
+                    max_features = 50
+                    sfs = SequentialFeatureSelector(clf, k_features=(1, max_features), scoring='balanced_accuracy', cv=LOGO, n_jobs=len(subject_ids), verbose=2)
+                    best_X = sfs.fit_transform(X, y, groups=groups)
+                    print('\nbest score (with {} features): {}'.format(len(list(sfs.k_feature_idx_)), sfs.k_score_))
+                    print(can_data_features_bin.columns.to_numpy()[list(sfs.k_feature_idx_)])
 
-                    clf = None
-                    if classifier == 'log_regression':
-                        clf = LogisticRegression(
-                        penalty='l1', solver='saga', max_iter=1000, tol=1e-1, class_weight='balanced')
-                    elif classifier == 'random_forest':
-                        clf = XGBClassifier(objective='binary:hinge', n_estimators=150, scale_pos_weight=np.bincount(y)[0] / float(np.bincount(y)[1]), use_label_encoder=False, n_jobs=1)
-                    else:
-                        raise ValueError('Received unknown classifier string!')
-                    
-                    max_features = 16
-                    best_score = 0
-                    best_features = []
-                    best_X = None
-                    for n_features in range(10, max_features+1):
-                        sfs = SequentialFeatureSelector(clf, k_features=n_features, scoring='balanced_accuracy', cv=LOGO, n_jobs=len(subject_ids))
-                        X_new = sfs.fit_transform(StandardScaler().fit_transform(X, y), y, groups=groups)
-                        score = sfs.k_score_
-                        print('score with {} features: {}'.format(n_features, score))
-                        if score > best_score:
-                            best_score = score
-                            best_features = can_data_features_bin.columns.to_numpy()[list(sfs.k_feature_idx_)]
-                            best_X = X_new
-                    print('best score (with {} features): {}'.format(len(best_features), best_score))
-                    print(best_features)
-                    # vt = VarianceThreshold(threshold=0.2)
-                    # sfm = SelectFromModel(clf, threshold=-np.inf, max_features=50)
-
-                    pipeline = make_pipeline(StandardScaler(), clf)
-
-                    cv = cross_validate(estimator=pipeline, X=best_X, y=y, scoring=SCORING, return_estimator=True, verbose=0,
+                    cv = cross_validate(estimator=clf, X=best_X, y=y, scoring=SCORING, return_estimator=True, verbose=0,
                             return_train_score=True, cv=LOGO, groups=groups, n_jobs=len(subject_ids))
 
 
@@ -215,26 +190,13 @@ def do_event_classification(classifier):
         groups = list(can_data_events_bin.index.get_level_values('subject_id'))
         subject_ids = np.unique(groups)
         
-        X = can_data_events_bin.drop(columns='label').to_numpy(dtype=np.float64)
-        
-        y = can_data_events_bin['label'].to_numpy()
+        X, y, scale = prepare_dataset(can_data_events_bin)
 
-        clf = None
-        if classifier == 'log_regression':
-            clf = LogisticRegression(
-            penalty='l1', solver='saga', max_iter=1000, tol=1e-1, class_weight='balanced')
-        elif classifier == 'random_forest':
-            clf = RandomForestClassifier(n_estimators=500, class_weight='balanced')
-        else:
-            raise ValueError('Received unknown classifier string!')
+        clf = configure_classifier(classifier)
         
         #sfs = SequentialFeatureSelector(clf, n_features_to_select=5, scoring='roc_auc', n_jobs=len(subject_ids))
-        #vt = VarianceThreshold(threshold=0.2)
-        #sfm = SelectFromModel(clf, threshold=-np.inf, max_features=50)
 
-        pipeline = make_pipeline(StandardScaler(), clf)
-
-        cv = cross_validate(estimator=pipeline, X=X, y=y, scoring=SCORING, return_estimator=True, verbose=0,
+        cv = cross_validate(estimator=clf, X=X, y=y, scoring=SCORING, return_estimator=True, verbose=0,
                 return_train_score=True, cv=LOGO, groups=groups, n_jobs=len(subject_ids))
 
         results = pd.DataFrame({k:v for k,v in cv.items() if k not in ['estimator']}).set_index(subject_ids)
@@ -246,3 +208,26 @@ def do_event_classification(classifier):
                 'out/results/{}_pred_results_events_{}.csv'.format(
                     classifier, scenario), index=True, header=True
                 )
+
+
+def prepare_dataset(data):  
+    X = data.drop(columns='label').to_numpy(dtype=np.float64)
+    
+    y = data['label'].to_numpy()
+    scale = np.bincount(y)[0] / float(np.bincount(y)[1])
+
+    X = StandardScaler().fit_transform(X, y)
+
+    return X, y, scale
+
+
+def configure_classifier(classifier):
+    clf = None
+    if classifier == 'log_regression':
+        clf = LogisticRegression(
+        penalty='l1', solver='saga', max_iter=1000, class_weight='balanced', random_state=random_state)
+    elif classifier == 'random_forest':
+        clf = XGBRFClassifier(objective='binary:logistic', eval_metric='logloss', n_estimators=100, scale_pos_weight=scale, use_label_encoder=False, n_jobs=1, random_state=random_state)
+    else:
+        raise ValueError('Received unknown classifier string!')
+    return clf
