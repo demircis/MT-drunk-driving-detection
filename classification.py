@@ -53,7 +53,7 @@ SELECTED_FEATURES = [
 
 STATS = ['mean', 'std', 'skewness', 'kurtosis', 'rms', 'q5', 'q95', 'min', 'max', 'peaks', 'range', 'iqrange', 'iqrange_5_95']
 
-SUM_COLUMNS = ['lane_crossing', 'is_crossing_lane', 'is_crossing_lane_left', 'is_crossing_lane_right', 'speed_limit_exceeded']
+SUM_COLUMNS = ['lane_crossing', 'lane_crossing_left', 'lane_crossing_right', 'is_crossing_lane', 'is_crossing_lane_left', 'is_crossing_lane_right', 'speed_limit_exceeded']
 
 SCENARIOS = ['highway', 'rural', 'town']
 
