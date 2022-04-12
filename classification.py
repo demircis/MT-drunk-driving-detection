@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 from sklearnex import patch_sklearn
 patch_sklearn()
+from sklearn.utils.class_weight import compute_class_weight
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
@@ -59,7 +60,7 @@ SCENARIOS = ['highway', 'rural', 'town']
 LOGO = LeaveOneGroupOut()
 
 
-def do_sliding_window_classification(window_sizes, overlap_percentages, classifier):
+def do_sliding_window_classification(window_sizes, overlap_percentages, classifier, mode):
     for window_size in window_sizes:
         for combo in SIGNAL_COMBOS:
             signal_string = ''
@@ -77,13 +78,9 @@ def do_sliding_window_classification(window_sizes, overlap_percentages, classifi
             for item in stat_columns_list:
                 stat_columns += item
             can_data_features = can_data_features[stat_columns]
-            can_data_features.loc[:, 'label'] = 0
-            can_data_features.loc[(slice(None), 'above', slice(None), slice(None)), 'label'] = 1
-
-            can_data_features.dropna(axis=1, inplace=True)
-
-            # drop below BAC level for binary classification
-            can_data_features = can_data_features.drop('below', level=1)
+            
+            if classifier == 'log_regression':
+                can_data_features.dropna(axis=1, inplace=True)
 
             for overlap_percentage in overlap_percentages:
                 step = 1
@@ -98,22 +95,20 @@ def do_sliding_window_classification(window_sizes, overlap_percentages, classifi
 
                     can_data_features_bin = can_data_features_step.loc[:, :, scenario, :]
 
-                    groups = list(can_data_features_bin.index.get_level_values('subject_id'))
-                    subject_ids = np.unique(groups)
-                    
-                    X, y, scale = prepare_dataset(can_data_features_bin)
+                    X, y, weights, groups = prepare_dataset(can_data_features_bin, mode)
 
-                    clf = configure_classifier(classifier)
+                    clf = get_classifier(classifier, mode)
                     
+                    subject_ids = np.unique(groups)
+
                     max_features = 50
                     sfs = SequentialFeatureSelector(clf, k_features=(1, max_features), scoring='balanced_accuracy', cv=LOGO, n_jobs=len(subject_ids), verbose=2)
-                    best_X = sfs.fit_transform(X, y, groups=groups)
+                    best_X = sfs.fit_transform(X, y, groups=groups, sample_weight=weights)
                     print('\nbest score (with {} features): {}'.format(len(list(sfs.k_feature_idx_)), sfs.k_score_))
                     print(can_data_features_bin.columns.to_numpy()[list(sfs.k_feature_idx_)])
 
                     cv = cross_validate(estimator=clf, X=best_X, y=y, scoring=SCORING, return_estimator=True, verbose=0,
-                            return_train_score=True, cv=LOGO, groups=groups, n_jobs=len(subject_ids))
-
+                            return_train_score=True, cv=LOGO, groups=groups, n_jobs=len(subject_ids), fit_params={'sample_weight': weights})
 
                     # for subject_id, est in zip(subject_ids, cv['estimator']):
                     #     if not os.path.exists('out/results/subject_{}'.format(subject_id)):
@@ -146,11 +141,7 @@ def do_sliding_window_classification(window_sizes, overlap_percentages, classifi
                     # indices = cv['estimator'][0]['selectfrommodel'].get_support(indices=True)
                     # print(can_data_features_bin.columns[indices])
                     
-                    results = pd.DataFrame({k:v for k,v in cv.items() if k not in ['estimator']}).set_index(subject_ids)
-                    mean = results.mean(axis=0).rename('mean')
-                    std = results.std(axis=0).rename('stddev')
-                    results = results.append(mean)
-                    results = results.append(std)
+                    results = collect_results(cv, subject_ids)
                     results.to_csv(
                             'out/results/{}_pred_results_windowsize_{}_step_size_{}s{}_{}.csv'.format(
                                 classifier, window_size, step, signal_string, scenario
@@ -158,7 +149,7 @@ def do_sliding_window_classification(window_sizes, overlap_percentages, classifi
                             )
 
 
-def do_event_classification(classifier):
+def do_event_classification(classifier, mode):
     can_data_events = []
     for e in EVENTS:
         can_data_events.append(pd.read_parquet('out/can_data_{}_events.parquet'.format(e)))
@@ -173,61 +164,85 @@ def do_event_classification(classifier):
         stat_columns += item
     can_data_events = can_data_events[['duration'] + stat_columns]
 
-    can_data_events.loc[:, 'label'] = 0
-    can_data_events.loc[(slice(None), 'above', slice(None), slice(None)), 'label'] = 1
-
-    can_data_events.dropna(axis=1, inplace=True)
-
-    # drop below BAC level for binary classification
-    can_data_events.drop('below', level=1, inplace=True)
-
+    if classifier == 'log_regression':
+        can_data_events.dropna(axis=1, inplace=True)
 
     for k, scenario in enumerate(SCENARIOS):
         print('scenario: {}'.format(scenario))
 
         can_data_events_bin = can_data_events.loc[:, :, scenario, :]
 
-        groups = list(can_data_events_bin.index.get_level_values('subject_id'))
-        subject_ids = np.unique(groups)
-        
-        X, y, scale = prepare_dataset(can_data_events_bin)
+        X, y, weights, groups = prepare_dataset(can_data_events_bin, mode)
 
-        clf = configure_classifier(classifier)
+        clf = get_classifier(classifier, mode)
         
+        subject_ids = np.unique(groups)
+
         #sfs = SequentialFeatureSelector(clf, n_features_to_select=5, scoring='roc_auc', n_jobs=len(subject_ids))
 
         cv = cross_validate(estimator=clf, X=X, y=y, scoring=SCORING, return_estimator=True, verbose=0,
                 return_train_score=True, cv=LOGO, groups=groups, n_jobs=len(subject_ids))
 
-        results = pd.DataFrame({k:v for k,v in cv.items() if k not in ['estimator']}).set_index(subject_ids)
-        mean = results.mean(axis=0).rename('mean')
-        std = results.std(axis=0).rename('stddev')
-        results = results.append(mean)
-        results = results.append(std)
+        results = collect_results(cv, subject_ids)
         results.to_csv(
                 'out/results/{}_pred_results_events_{}.csv'.format(
                     classifier, scenario), index=True, header=True
                 )
 
 
-def prepare_dataset(data):  
-    X = data.drop(columns='label').to_numpy(dtype=np.float64)
+def prepare_dataset(data, mode):
+    input_data = data.copy()
+    input_data.loc[:, 'label'] = 0
+    if mode == 'binary':
+        input_data.loc[(slice(None), 'above', slice(None), slice(None)), 'label'] = 1
+        # drop below BAC level for binary classification
+        input_data.drop('below', level=1, inplace=True)
+    elif mode == 'multiclass':
+        input_data.loc[(slice(None), 'below', slice(None), slice(None)), 'label'] = 1
+        input_data.loc[(slice(None), 'above', slice(None), slice(None)), 'label'] = 2
+    else:
+        raise ValueError('Received unknown classifier mode string!')
+
+    X = input_data.drop(columns='label').to_numpy(dtype=np.float64)
     
-    y = data['label'].to_numpy()
-    scale = np.bincount(y)[0] / float(np.bincount(y)[1])
+    y = input_data['label'].to_numpy()
+    class_weights = compute_class_weight('balanced', classes=np.unique(y), y=y)
+    weights = np.zeros(y.shape)
+    for i, weight in enumerate(class_weights):
+        weights[y == i] = class_weights[i]
+
+    groups = list(input_data.index.get_level_values('subject_id'))
 
     X = StandardScaler().fit_transform(X, y)
 
-    return X, y, scale
+    return X, y, weights, groups
 
 
-def configure_classifier(classifier):
+def get_classifier(classifier, mode):
     clf = None
-    if classifier == 'log_regression':
-        clf = LogisticRegression(
-        penalty='l1', solver='saga', max_iter=1000, class_weight='balanced', random_state=random_state)
-    elif classifier == 'random_forest':
-        clf = XGBRFClassifier(objective='binary:logistic', eval_metric='logloss', n_estimators=100, scale_pos_weight=scale, use_label_encoder=False, n_jobs=1, random_state=random_state)
-    else:
-        raise ValueError('Received unknown classifier string!')
+    if mode == 'binary':
+        if classifier == 'log_regression':
+            clf = LogisticRegression(
+            penalty='l1', solver='saga', max_iter=1000, tol=1e-2, random_state=random_state)
+        elif classifier == 'random_forest':
+            clf = XGBRFClassifier(objective='binary:logistic', eval_metric='logloss', n_estimators=100, use_label_encoder=False, n_jobs=1, random_state=random_state)
+        else:
+            raise ValueError('Received unknown classifier string!')
+    elif mode == 'multiclass':
+        if classifier == 'log_regression':
+            clf = LogisticRegression(
+            penalty='l1', solver='saga', max_iter=1000, tol=1e-2, random_state=random_state)
+        elif classifier == 'random_forest':
+            clf = XGBRFClassifier(objective='multi:softmax', n_estimators=100, use_label_encoder=False, n_jobs=1, random_state=random_state)
+        else:
+            raise ValueError('Received unknown classifier string!')
     return clf
+
+
+def collect_results(cv_object, subject_ids):
+    results = pd.DataFrame({k:v for k,v in cv_object.items() if k not in ['estimator']}).set_index(subject_ids)
+    mean = results.mean(axis=0).rename('mean')
+    std = results.std(axis=0).rename('stddev')
+    results = results.append(mean)
+    results = results.append(std)
+    return results

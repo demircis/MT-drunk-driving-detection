@@ -5,7 +5,7 @@ parse_scenario_info: False
 preprocess: False
 generate_features: False
 do_classification: True
-window_sizes: [60]
+window_sizes: [60, 90, 120]
 overlap_percentages: [null]
 classifier: 'log_regression'
 dataset: 'sliding_window'

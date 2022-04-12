@@ -21,6 +21,6 @@ if __name__ == '__main__':
 
     if config.do_classification:
         if config.dataset == 'sliding_window':
-            do_sliding_window_classification(config.window_sizes, config.overlap_percentages, config.classifier)
+            do_sliding_window_classification(config.window_sizes, config.overlap_percentages, config.classifier, config.clf_mode)
         elif config.dataset == 'events':
-            do_event_classification(config.classifier)
+            do_event_classification(config.classifier, config.clf_mode)
