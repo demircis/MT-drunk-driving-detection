@@ -1,0 +1,10 @@
+,selected_features
+0,steer_iqrange
+1,SteerSpeed_max
+2,SteerSpeed_acc_skewness
+3,SteerSpeed_jerk_mean
+4,SpeedDif_peaks
+5,lane_crossing_mean
+6,latvel_acc_min
+7,YawRate_jerk_iqrange
+8,YawRate_kurtosis

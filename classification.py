@@ -125,47 +125,50 @@ def do_sliding_window_classification(window_sizes, overlap_percentages, classifi
 
 
 def do_event_classification(classifier, mode):
-    can_data_events = []
+    can_data_events = None
     for event in EVENTS:
-        can_data_events.append(pd.read_parquet('out/can_data_{}_events.parquet'.format(event)))
-    can_data_events = pd.concat(can_data_events, axis=0)
+        can_data_events = pd.read_parquet('out/can_data_{}_events.parquet'.format(event))
+        #can_data_events = pd.concat(can_data_events, axis=0)
 
-    if classifier == 'log_regression':
-        can_data_events.dropna(axis=1, inplace=True)
+        if classifier == 'log_regression':
+            can_data_events.dropna(axis=1, inplace=True)
 
-    for scenario in SCENARIOS:
-        print('scenario: {}'.format(scenario))
+        for scenario in SCENARIOS:
+            print('event type: {}, scenario: {}'.format(event, scenario))
 
-        can_data_events = can_data_events[['duration'] + select_columns(can_data_events)]
+            if event == 'turning' and scenario == 'highway':
+                continue
 
-        can_data_events_scenario = can_data_events.loc[:, :, scenario, :]
+            can_data_events = can_data_events[['duration'] + select_columns(can_data_events)]
 
-        X, y, weights, groups = prepare_dataset(can_data_events_scenario, mode)
+            can_data_events_scenario = can_data_events.loc[:, :, scenario, :]
 
-        clf = get_classifier(classifier, mode)
-        
-        subject_ids = np.unique(groups)
+            X, y, weights, groups = prepare_dataset(can_data_events_scenario, mode)
 
-        max_features = 50
-        sfs = SequentialFeatureSelector(clf, k_features=(1, max_features), scoring='balanced_accuracy', cv=LOGO, n_jobs=len(subject_ids)-1, verbose=2)
-        best_X = sfs.fit_transform(X, y, groups=groups, sample_weight=weights)
-        print('\nbest score (with {} features): {}'.format(len(list(sfs.k_feature_idx_)), sfs.k_score_))
-        selected_features = pd.Series(can_data_events_scenario.columns[list(sfs.k_feature_idx_)])
-        print(selected_features.to_numpy())
-        selected_features.to_csv(
-                'out/results/{}_{}_selected_features_events_{}.csv'.format(
-                    classifier, mode, scenario
-                    ), index=True, header=['selected_features']
-                )
+            clf = get_classifier(classifier, mode)
+            
+            subject_ids = np.unique(groups)
 
-        cv = cross_validate(estimator=clf, X=best_X, y=y, scoring=SCORING, return_estimator=True, verbose=0,
-                return_train_score=True, cv=LOGO, groups=groups, n_jobs=len(subject_ids)-1, fit_params={'sample_weight': weights})
+            max_features = 20
+            sfs = SequentialFeatureSelector(clf, k_features=(1, max_features), scoring='balanced_accuracy', cv=LOGO, n_jobs=len(subject_ids)-1, verbose=2)
+            best_X = sfs.fit_transform(X, y, groups=groups, sample_weight=weights)
+            print('\nbest score (with {} features): {}'.format(len(list(sfs.k_feature_idx_)), sfs.k_score_))
+            selected_features = pd.Series(can_data_events_scenario.columns[list(sfs.k_feature_idx_)])
+            print(selected_features.to_numpy())
+            selected_features.to_csv(
+                    'out/results/{}_{}_selected_features_{}_{}.csv'.format(
+                        classifier, mode, event, scenario
+                        ), index=True, header=['selected_features']
+                    )
 
-        results = collect_results(cv, subject_ids)
-        results.to_csv(
-                'out/results/{}_{}_pred_results_events_{}.csv'.format(
-                    classifier, mode, scenario), index=True, header=True
-                )
+            cv = cross_validate(estimator=clf, X=best_X, y=y, scoring=SCORING, return_estimator=True, verbose=0,
+                    return_train_score=True, cv=LOGO, groups=groups, n_jobs=len(subject_ids)-1, fit_params={'sample_weight': weights})
+
+            results = collect_results(cv, subject_ids)
+            results.to_csv(
+                    'out/results/{}_{}_pred_results_{}_{}.csv'.format(
+                        classifier, mode, event, scenario), index=True, header=True
+                    )
 
         cv = cross_validate(estimator=clf, X=X, y=y, scoring=SCORING, return_estimator=True, verbose=0,
                 return_train_score=True, cv=LOGO, groups=groups, n_jobs=len(subject_ids)-1, fit_params={'sample_weight': weights})

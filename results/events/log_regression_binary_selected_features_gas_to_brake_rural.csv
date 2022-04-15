@@ -1,0 +1,11 @@
+,selected_features
+0,gas_jerk_skewness
+1,SteerSpeed_max
+2,SteerSpeed_peaks
+3,SteerSpeed_acc_mean
+4,Dhw_rms
+5,Ttc_peaks
+6,TtcOpp_rms
+7,acc_jerk_min
+8,acc_jerk_kurtosis
+9,acc_jerk_rms

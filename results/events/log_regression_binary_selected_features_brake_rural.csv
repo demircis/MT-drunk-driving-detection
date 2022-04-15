@@ -1,0 +1,11 @@
+,selected_features
+0,gas_jerk_q5
+1,steer_mean
+2,steer_q95
+3,SteerSpeed_skewness
+4,SteerSpeed_jerk_kurtosis
+5,speed_limit_exceeded_kurtosis
+6,is_crossing_lane_right_q5
+7,Ttc_rms
+8,TtcOpp_rms
+9,velocity_mean

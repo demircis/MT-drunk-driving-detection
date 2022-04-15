@@ -1,0 +1,12 @@
+,selected_features
+0,brake_jerk_rms
+1,gas_mean
+2,gas_jerk_min
+3,SteerSpeed_acc_skewness
+4,speed_limit_exceeded_skewness
+5,is_crossing_lane_left_skewness
+6,acc_iqrange
+7,acc_jerk_iqrange
+8,latvel_acc_min
+9,latvel_acc_skewness
+10,latvel_jerk_mean

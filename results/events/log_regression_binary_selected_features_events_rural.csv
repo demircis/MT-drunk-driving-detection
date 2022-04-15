@@ -1,0 +1,14 @@
+,selected_features
+0,gas_acc_iqrange_5_95
+1,gas_vel_std
+2,gas_vel_min
+3,gas_vel_kurtosis
+4,gas_vel_rms
+5,SteerSpeed_mean
+6,SpeedDif_max
+7,SpeedDif_rms
+8,is_crossing_lane_right_min
+9,is_crossing_lane_right_iqrange
+10,TtcOpp_rms
+11,acc_kurtosis
+12,YawRate_kurtosis
