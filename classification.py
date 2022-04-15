@@ -108,8 +108,8 @@ def do_sliding_window_classification(window_sizes, overlap_percentages, classifi
                     selected_features = pd.Series(can_data_features_scenario.columns[list(sfs.k_feature_idx_)])
                     print(selected_features.to_numpy())
                     selected_features.to_csv(
-                            'out/results/{}_selected_features_windowsize_{}_step_size_{}s{}_{}.csv'.format(
-                                classifier, window_size, step, signal_string, scenario
+                            'out/results/{}_{}_selected_features_windowsize_{}_step_size_{}s{}_{}.csv'.format(
+                                classifier, mode, window_size, step, signal_string, scenario
                                 ), index=True, header=['selected_features']
                             )
 
