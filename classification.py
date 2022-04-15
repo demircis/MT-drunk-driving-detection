@@ -91,7 +91,7 @@ def do_sliding_window_classification(window_sizes, overlap_percentages, classifi
                         signal_string, window_size, step, overlap_percentage, scenario
                         ))
                     
-                    can_data_features_step = can_data_features_step[select_columns(can_data_features_step, scenario)]
+                    can_data_features_step = can_data_features_step[select_columns(can_data_features_step)]
 
                     can_data_features_scenario = can_data_features_step.loc[:, :, scenario, :]
 
@@ -149,7 +149,7 @@ def do_event_classification(classifier, mode):
         #sfs = SequentialFeatureSelector(clf, n_features_to_select=5, scoring='roc_auc', n_jobs=len(subject_ids))
 
         cv = cross_validate(estimator=clf, X=X, y=y, scoring=SCORING, return_estimator=True, verbose=0,
-                return_train_score=True, cv=LOGO, groups=groups, n_jobs=len(subject_ids)-1)
+                return_train_score=True, cv=LOGO, groups=groups, n_jobs=len(subject_ids)-1, fit_params={'sample_weight': weights})
 
         results = collect_results(cv, subject_ids)
         results.to_csv(
@@ -158,7 +158,7 @@ def do_event_classification(classifier, mode):
                 )
 
 
-def select_columns(data, scenario):
+def select_columns(data):
     stat_columns_list = [
         [col for col in data.columns if col in 
             [sig + '_' + s for s in (STATS + ['sum'] if sig in SUM_COLUMNS else STATS)]
@@ -189,7 +189,7 @@ def prepare_dataset(data, mode):
     class_weights = compute_class_weight('balanced', classes=np.unique(y), y=y)
     weights = np.zeros(y.shape)
     for i, weight in enumerate(class_weights):
-        weights[y == i] = class_weights[i]
+        weights[y == i] = weight
 
     groups = list(input_data.index.get_level_values('subject_id'))
 
