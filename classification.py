@@ -10,13 +10,6 @@ from mlxtend.feature_selection import SequentialFeatureSelector
 from sklearn.model_selection import cross_validate
 from sklearn.model_selection import LeaveOneGroupOut
 
-from yaml import load, Loader
-from bunch import Bunch
-Bunch.__str__ = Bunch.__repr__
-
-stream = open("config.yaml", 'r')
-config = Bunch(load(stream, Loader=Loader))
-
 RANDOM_STATE = 42
 
 SCORING = ['balanced_accuracy', 'roc_auc', 'f1_micro', 'average_precision', 'recall', 'precision']
@@ -102,11 +95,7 @@ def do_sliding_window_classification(window_sizes, overlap_percentages, classifi
                     subject_ids = np.unique(groups)
 
                     max_features = 50
-                    sfs = SequentialFeatureSelector(clf, k_features=(1, max_features), scoring='balanced_accuracy', cv=LOGO, n_jobs=len(subject_ids)-1, verbose=2)
-                    best_X = sfs.fit_transform(X, y, groups=groups, sample_weight=weights)
-                    print('\nbest score (with {} features): {}'.format(len(list(sfs.k_feature_idx_)), sfs.k_score_))
-                    selected_features = pd.Series(can_data_features_scenario.columns[list(sfs.k_feature_idx_)])
-                    print(selected_features.to_numpy())
+                    best_X, selected_features = sequential_feature_selection(max_features, clf, can_data_features_scenario, X, y, groups, weights, len(subject_ids)-1)
                     selected_features.to_csv(
                             'out/results/{}_{}_selected_features_windowsize_{}_step_size_{}s{}_{}.csv'.format(
                                 classifier, mode, window_size, step, signal_string, scenario
@@ -150,11 +139,7 @@ def do_event_classification(classifier, mode):
             subject_ids = np.unique(groups)
 
             max_features = 20
-            sfs = SequentialFeatureSelector(clf, k_features=(1, max_features), scoring='balanced_accuracy', cv=LOGO, n_jobs=len(subject_ids)-1, verbose=2)
-            best_X = sfs.fit_transform(X, y, groups=groups, sample_weight=weights)
-            print('\nbest score (with {} features): {}'.format(len(list(sfs.k_feature_idx_)), sfs.k_score_))
-            selected_features = pd.Series(can_data_events_scenario.columns[list(sfs.k_feature_idx_)])
-            print(selected_features.to_numpy())
+            best_X, selected_features = sequential_feature_selection(max_features, clf, can_data_events_scenario, X, y, groups, weights, len(subject_ids)-1)
             selected_features.to_csv(
                     'out/results/{}_{}_selected_features_{}_{}.csv'.format(
                         classifier, mode, event, scenario
@@ -218,6 +203,15 @@ def prepare_dataset(data, mode):
     X = StandardScaler().fit_transform(X, y)
 
     return X, y, weights, groups
+
+
+def sequential_feature_selection(max_features, estimator, data, X, y, groups=None, weights=None, n_jobs=1):
+    sfs = SequentialFeatureSelector(estimator, k_features=(1, max_features), scoring='balanced_accuracy', cv=LOGO, n_jobs=n_jobs, verbose=2)
+    best_X = sfs.fit_transform(X, y, groups=groups, sample_weight=weights)
+    print('\nbest score (with {} features): {}'.format(len(list(sfs.k_feature_idx_)), sfs.k_score_))
+    selected_features = pd.Series(data.columns[list(sfs.k_feature_idx_)])
+    print(selected_features.to_numpy())
+    return best_X, selected_features
 
 
 def get_classifier(classifier, mode):
