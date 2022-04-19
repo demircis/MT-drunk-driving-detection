@@ -1,5 +1,5 @@
 from yaml import load, Loader
-from classification import do_sliding_window_classification, do_event_classification
+from classification import do_combined_classification, do_sliding_window_classification, do_event_classification
 from generate_can_features import store_can_data_features
 from parse_scenario_information import parse_scenario_information
 from preprocess_can_data import do_preprocessing
@@ -24,3 +24,5 @@ if __name__ == '__main__':
             do_sliding_window_classification(config.window_sizes, config.overlap_percentages, config.classifier, config.clf_mode)
         elif config.dataset == 'events':
             do_event_classification(config.classifier, config.clf_mode)
+        elif config.dataset == 'combined':
+            do_combined_classification(config.classifier, config.window_sizes, config.clf_mode)

@@ -67,7 +67,7 @@ def do_sliding_window_classification(window_sizes, overlap_percentages, classifi
             can_data_features = []
             for signal in combo:
                 signal_string += '_' + signal
-                can_data_features.append(pd.read_parquet('out/can_data_features_{}_windowsize_{}s_new.parquet'.format(signal, window_size)))
+                can_data_features.append(pd.read_parquet('out/can_data_features_{}_windowsize_{}s.parquet'.format(signal, window_size)))
             can_data_features = pd.concat(can_data_features, axis=1)
             
             if classifier == 'log_regression':
@@ -155,14 +155,62 @@ def do_event_classification(classifier, mode):
                         classifier, mode, event, scenario), index=True, header=True
                     )
 
-        cv = cross_validate(estimator=clf, X=X, y=y, scoring=SCORING, return_estimator=True, verbose=0,
-                return_train_score=True, cv=LOGO, groups=groups, n_jobs=len(subject_ids)-1, fit_params={'sample_weight': weights})
 
-        results = collect_results(cv, subject_ids)
-        results.to_csv(
-                'out/results/{}_pred_results_events_{}.csv'.format(
-                    classifier, scenario), index=True, header=True
-                )
+def do_combined_classification(classifier, window_sizes, mode):
+    for window_size in window_sizes:
+        for combo in SIGNAL_COMBOS:
+            signal_string = ''
+            can_data_features = []
+            for signal in combo:
+                signal_string += '_' + signal
+                can_data_features.append(pd.read_parquet('out/can_data_features_{}_windowsize_{}s.parquet'.format(signal, window_size)))
+            can_data_features = pd.concat(can_data_features, axis=1)
+
+            can_data_features = can_data_features.loc[:,~can_data_features.columns.duplicated()]
+            can_data_features = can_data_features[['duration'] + select_columns(can_data_features)]
+            
+            can_data_events = []
+            for event in EVENTS:
+                can_data_events.append(pd.read_parquet('out/can_data_{}_events.parquet'.format(event)))
+            can_data_events = pd.concat(can_data_events, axis=0)
+
+            can_data_events = can_data_events[['duration'] + select_columns(can_data_events)]
+
+            can_data_combined = pd.concat((can_data_features, can_data_events), axis=0)
+
+            if classifier == 'log_regression':
+                can_data_combined.dropna(axis=1, inplace=True)
+
+            for scenario in SCENARIOS:
+                print('signals: {}, window size: {}s, scenario: {}'.format(
+                    signal_string, window_size, scenario
+                    ))
+                
+                can_data_combined_scenario = can_data_combined.loc[:, :, scenario, :]
+
+                X, y, weights, groups = prepare_dataset(can_data_combined_scenario, mode)
+
+                clf = get_classifier(classifier, mode)
+
+                subject_ids = np.unique(groups)
+
+                max_features = 50
+                best_X, selected_features = sequential_feature_selection(max_features, clf, can_data_combined_scenario, X, y, groups, weights, len(subject_ids)-1)
+                selected_features.to_csv(
+                        'out/results/{}_{}_selected_features_combined_windowsize_{}{}_{}.csv'.format(
+                            classifier, mode, window_size, signal_string, scenario
+                            ), index=True, header=['selected_features']
+                        )
+
+                cv = cross_validate(estimator=clf, X=best_X, y=y, scoring=SCORING, return_estimator=True, verbose=0,
+                        return_train_score=True, cv=LOGO, groups=groups, n_jobs=len(subject_ids), fit_params={'sample_weight': weights})
+
+                results = collect_results(cv, subject_ids)
+                results.to_csv(
+                            'out/results/{}_{}_pred_results_combined_windowsize_{}{}_{}.csv'.format(
+                                classifier, mode, window_size, signal_string, scenario
+                                ), index=True, header=True
+                            )
 
 
 def select_columns(data):

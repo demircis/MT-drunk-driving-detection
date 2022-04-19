@@ -28,4 +28,4 @@ def store_can_data_features(window_sizes):
                 lambda x: get_features(x[['timestamp'] + signal], window_size * 1000, num_cores=10)
                 )
             
-            can_data_features.to_parquet('out/can_data_features_{}_windowsize_{}s_new.parquet'.format(key, window_size))
+            can_data_features.to_parquet('out/can_data_features_{}_windowsize_{}s.parquet'.format(key, window_size))
