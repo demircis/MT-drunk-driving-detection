@@ -41,5 +41,9 @@ def filter_can_data_event_columns():
         selected_columns = []
         for sublist in columns_per_signal:
             selected_columns += sublist
-        can_data_event_filtered = can_data_event[['duration'] + selected_columns]
+        can_data_event_filtered = None
+        if event == 'road_sign':
+            can_data_event_filtered = can_data_event[['duration', 'sign_type'] + selected_columns]
+        else:
+            can_data_event_filtered = can_data_event[['duration'] + selected_columns]
         can_data_event_filtered.to_parquet('out/can_data_{}_events.parquet'.format(event))
