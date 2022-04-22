@@ -69,9 +69,14 @@ def calc_event_features_in_window(window_sizes):
                 for timestamp in window_timestamps:
                     min_timestamp = timestamp
                     max_timestamp = timestamp + datetime.timedelta(seconds=window_size)
-                    events_in_window = event_data.loc[(event_data.index.get_level_values('datetime') >= min_timestamp) | (event_data.index.get_level_values('datetime') < max_timestamp)]
-                    mean_duration = events_in_window['duration'].mean()
-                    std_duration = events_in_window['duration'].std()
+                    events_in_window = event_data.loc[(
+                        (event_data.index.get_level_values('datetime') >= min_timestamp) | (event_data.index.get_level_values('datetime') < max_timestamp)
+                    )]
+                    mean_duration = 0
+                    std_duration = 0
+                    if not events_in_window['duration'].empty:
+                        mean_duration = events_in_window['duration'].mean()
+                        std_duration = events_in_window['duration'].std()
                     start_timestamps = events_in_window.index.get_level_values('datetime')
                     # event_durations_in_window = [np.min(
                     #         DateTimeRange(start_timestamp, max_timestamp),
@@ -87,8 +92,11 @@ def calc_event_features_in_window(window_sizes):
                     # total_ratio = (np.sum(event_durations_in_window) - overlap_duration) / window_size
                     event_durations = events_in_window['duration'].to_numpy()
                     ratios = np.minimum((max_timestamp - start_timestamps).total_seconds().to_numpy(), event_durations) / window_size
-                    mean_ratio = np.mean(ratios)
-                    std_ratio = np.std(ratios)
+                    mean_ratio = 0
+                    std_ratio = 0
+                    if len(ratios) > 0:
+                        mean_ratio = np.mean(ratios)
+                        std_ratio = np.std(ratios)
                     count = len(events_in_window.index)
                     event_info_dict = {
                         'mean_duration': mean_duration,
