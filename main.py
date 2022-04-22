@@ -1,6 +1,6 @@
 from yaml import load, Loader
 from classification import do_combined_classification, do_sliding_window_classification, do_event_classification
-from generate_can_features import calc_can_data_features, filter_can_data_event_columns
+from generate_can_features import calc_can_data_features, calc_event_features_in_window, filter_can_data_event_columns
 from parse_scenario_information import parse_scenario_information
 from preprocess_can_data import do_preprocessing
 
@@ -19,6 +19,7 @@ if __name__ == '__main__':
     if config.generate_features:
         calc_can_data_features(config.window_sizes)
         filter_can_data_event_columns()
+        calc_event_features_in_window(config.window_sizes)
 
     if config.do_classification:
         if config.dataset == 'sliding_window':

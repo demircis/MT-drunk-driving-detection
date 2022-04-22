@@ -1,4 +1,6 @@
 import pandas as pd
+import numpy as np
+import datetime
 
 from get_features import get_features
 
@@ -50,3 +52,59 @@ def filter_can_data_event_columns():
         else:
             can_data_event_filtered = can_data_event[['duration'] + selected_columns]
         can_data_event_filtered.to_parquet('out/can_data_{}_events_features.parquet'.format(event))
+
+
+def calc_event_features_in_window(window_sizes):
+    for window_size in window_sizes:
+        def get_event_info_for_windows(data):
+            subject_id = data.index.get_level_values('subject_id')
+            subject_scenario = data.index.get_level_values('subject_scenario')
+            subject_state = data.index.get_level_values('subject_state')
+            window_timestamps = data.index.get_level_values('datetime')
+            event_info_for_windows = []
+            for event in EVENTS:
+                event_data = pd.read_parquet('out/can_data_{}_events_features.parquet'.format(event))
+                event_data = event_data.loc[subject_id, subject_state, subject_scenario, :]
+                event_info = []
+                for timestamp in window_timestamps:
+                    min_timestamp = timestamp
+                    max_timestamp = timestamp + datetime.timedelta(seconds=window_size)
+                    events_in_window = event_data.loc[(event_data.index.get_level_values('datetime') >= min_timestamp) | (event_data.index.get_level_values('datetime') < max_timestamp)]
+                    mean_duration = events_in_window['duration'].mean()
+                    std_duration = events_in_window['duration'].std()
+                    start_timestamps = events_in_window.index.get_level_values('datetime')
+                    # event_durations_in_window = [np.min(
+                    #         DateTimeRange(start_timestamp, max_timestamp),
+                    #         DateTimeRange(start_timestamp, start_timestamp + datetime.timedelta(seconds=events_in_window['duration']))
+                    #     ) for start_timestamp in start_timestamps]
+                    # overlap_duration = 0
+                    # for i in range(len(event_durations_in_window)-1):
+                    #     event_duration_i = event_durations_in_window[i]
+                    #     for j in range(i+1, len(event_durations_in_window)):
+                    #         event_duration_j = event_durations_in_window[j]
+                    #         if event_duration_i.is_intersection(event_duration_j):
+                    #             overlap_duration += event_duration_i.intersection(event_duration_j).timedelta.total_seconds()
+                    # total_ratio = (np.sum(event_durations_in_window) - overlap_duration) / window_size
+                    event_durations = events_in_window['duration'].to_numpy()
+                    ratios = np.minimum((max_timestamp - start_timestamps).total_seconds().to_numpy(), event_durations) / window_size
+                    mean_ratio = np.mean(ratios)
+                    std_ratio = np.std(ratios)
+                    count = len(events_in_window.index)
+                    event_info_dict = {
+                        'mean_duration': mean_duration,
+                        'std_duration': std_duration,
+                        'mean_ratio': mean_ratio,
+                        'std_ratio': std_ratio,
+                        'count': count
+                    }
+                    event_info_dict = {event + '_' + key: value for key, value in event_info_dict.items()}
+                    event_info.append(event_info_dict)
+                event_info_for_windows.append(pd.DataFrame(event_info))
+            result = pd.concat(event_info_for_windows, axis=1)
+            return result
+
+        can_data_features = pd.read_parquet('out/can_data_features_vehicle_behavior_windowsize_{}s.parquet'.format(window_size))
+        events_per_window = can_data_features.groupby(['subject_id', 'subject_scenario', 'subject_state']).apply(
+            lambda group: get_event_info_for_windows(group)
+        )
+        events_per_window.to_parquet('out/can_data_events_per_window_windowsize_{}s.parquet'.format(window_size))

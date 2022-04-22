@@ -116,7 +116,7 @@ def do_sliding_window_classification(window_sizes, overlap_percentages, classifi
 def do_event_classification(classifier, mode):
     can_data_events = None
     for event in EVENTS:
-        can_data_events = pd.read_parquet('out/can_data_{}_events.parquet'.format(event))
+        can_data_events = pd.read_parquet('out/can_data_{}_events_features.parquet'.format(event))
         #can_data_events = pd.concat(can_data_events, axis=0)
 
         if classifier == 'log_regression':
@@ -171,7 +171,7 @@ def do_combined_classification(classifier, window_sizes, mode):
             
             can_data_events = []
             for event in EVENTS:
-                can_data_events.append(pd.read_parquet('out/can_data_{}_events.parquet'.format(event)))
+                can_data_events.append(pd.read_parquet('out/can_data_{}_events_features.parquet'.format(event)))
             can_data_events = pd.concat(can_data_events, axis=0)
 
             can_data_events = can_data_events[['duration'] + select_columns(can_data_events)]
@@ -194,7 +194,7 @@ def do_combined_classification(classifier, window_sizes, mode):
 
                 subject_ids = np.unique(groups)
 
-                max_features = 50
+                max_features = 20
                 best_X, selected_features = sequential_feature_selection(max_features, clf, can_data_combined_scenario, X, y, groups, weights, len(subject_ids)-1)
                 selected_features.to_csv(
                         'out/results/{}_{}_selected_features_combined_windowsize_{}{}_{}.csv'.format(
