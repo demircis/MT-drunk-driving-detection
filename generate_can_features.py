@@ -58,8 +58,8 @@ def calc_event_features_in_window(window_sizes):
     for window_size in window_sizes:
         def get_event_info_for_windows(data):
             subject_id = np.unique(data.index.get_level_values('subject_id'))[0]
-            subject_scenario = np.unique(data.index.get_level_values('subject_scenario'))[0]
             subject_state = np.unique(data.index.get_level_values('subject_state'))[0]
+            subject_scenario = np.unique(data.index.get_level_values('subject_scenario'))[0]
             window_timestamps = data.index.get_level_values('datetime')
             event_info_for_windows = []
             for event in EVENTS:
@@ -109,12 +109,12 @@ def calc_event_features_in_window(window_sizes):
                     }
                     event_info_dict = {event + '_' + key: value for key, value in event_info_dict.items()}
                     event_info.append(event_info_dict)
-                event_info_for_windows.append(pd.DataFrame(event_info))
+                event_info_for_windows.append(pd.DataFrame(event_info).set_index(window_timestamps))
             result = pd.concat(event_info_for_windows, axis=1)
             return result
 
         can_data_features = pd.read_parquet('out/can_data_features_vehicle_behavior_windowsize_{}s.parquet'.format(window_size))
-        events_per_window = can_data_features.groupby(['subject_id', 'subject_scenario', 'subject_state']).apply(
+        events_per_window = can_data_features.groupby(['subject_id', 'subject_state', 'subject_scenario']).apply(
             lambda group: get_event_info_for_windows(group)
         )
         events_per_window.to_parquet('out/can_data_events_per_window_windowsize_{}s.parquet'.format(window_size))
