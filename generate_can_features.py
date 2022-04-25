@@ -57,12 +57,14 @@ def filter_can_data_event_columns():
 def calc_event_features_in_window(window_sizes):
     for window_size in window_sizes:
         def get_event_info_for_windows(data):
-            subject_id = data.index.get_level_values('subject_id')
-            subject_scenario = data.index.get_level_values('subject_scenario')
-            subject_state = data.index.get_level_values('subject_state')
+            subject_id = np.unique(data.index.get_level_values('subject_id'))[0]
+            subject_scenario = np.unique(data.index.get_level_values('subject_scenario'))[0]
+            subject_state = np.unique(data.index.get_level_values('subject_state'))[0]
             window_timestamps = data.index.get_level_values('datetime')
             event_info_for_windows = []
             for event in EVENTS:
+                if event == 'turning' and subject_scenario == 'highway':
+                    continue
                 event_data = pd.read_parquet('out/can_data_{}_events_features.parquet'.format(event))
                 event_data = event_data.loc[subject_id, subject_state, subject_scenario, :]
                 event_info = []
