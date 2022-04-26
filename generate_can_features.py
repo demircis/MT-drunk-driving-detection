@@ -71,8 +71,11 @@ def calc_event_features_in_window(window_sizes):
                 for timestamp in window_timestamps:
                     min_timestamp = timestamp
                     max_timestamp = timestamp + datetime.timedelta(seconds=window_size)
+                    start_timestamps = event_data.index.get_level_values('datetime')
+                    end_timestamps = event_data.index.get_level_values('datetime') + event_data['duration'].apply(lambda duration: datetime.timedelta(seconds=duration))
                     events_in_window = event_data.loc[(
-                        (event_data.index.get_level_values('datetime') >= min_timestamp) | (event_data.index.get_level_values('datetime') < max_timestamp)
+                        ((start_timestamps >= min_timestamp) & (start_timestamps < max_timestamp)) |
+                        ((end_timestamps >= min_timestamp) & (end_timestamps < max_timestamp))
                     )]
                     mean_duration = 0
                     std_duration = 0
@@ -80,6 +83,7 @@ def calc_event_features_in_window(window_sizes):
                         mean_duration = events_in_window['duration'].mean()
                         std_duration = events_in_window['duration'].std()
                     start_timestamps = events_in_window.index.get_level_values('datetime')
+                    end_timestamps = events_in_window.index.get_level_values('datetime') + events_in_window['duration'].apply(lambda duration: datetime.timedelta(seconds=duration))
                     # event_durations_in_window = [np.min(
                     #         DateTimeRange(start_timestamp, max_timestamp),
                     #         DateTimeRange(start_timestamp, start_timestamp + datetime.timedelta(seconds=events_in_window['duration']))
@@ -93,10 +97,13 @@ def calc_event_features_in_window(window_sizes):
                     #             overlap_duration += event_duration_i.intersection(event_duration_j).timedelta.total_seconds()
                     # total_ratio = (np.sum(event_durations_in_window) - overlap_duration) / window_size
                     event_durations = events_in_window['duration'].to_numpy()
-                    ratios = np.minimum((max_timestamp - start_timestamps).total_seconds().to_numpy(), event_durations) / window_size
                     mean_ratio = 0
                     std_ratio = 0
-                    if len(ratios) > 0:
+                    if not start_timestamps.empty:
+                        ratios = np.minimum(
+                            np.minimum(
+                                (max_timestamp - start_timestamps).total_seconds().to_numpy(), (end_timestamps - min_timestamp).apply(lambda x: x.total_seconds()).to_numpy()
+                            ), event_durations) / window_size
                         mean_ratio = np.mean(ratios)
                         std_ratio = np.std(ratios)
                     count = len(events_in_window.index)
@@ -114,7 +121,5 @@ def calc_event_features_in_window(window_sizes):
             return result
 
         can_data_features = pd.read_parquet('out/can_data_features_vehicle_behavior_windowsize_{}s.parquet'.format(window_size))
-        events_per_window = can_data_features.groupby(['subject_id', 'subject_state', 'subject_scenario']).apply(
-            lambda group: get_event_info_for_windows(group)
-        )
+        events_per_window = can_data_features.groupby(['subject_id', 'subject_state', 'subject_scenario']).apply(get_event_info_for_windows)
         events_per_window.to_parquet('out/can_data_events_per_window_windowsize_{}s.parquet'.format(window_size))
