@@ -81,7 +81,7 @@ def calc_event_features_in_window(window_sizes):
                     std_duration = 0
                     if not events_in_window['duration'].empty:
                         mean_duration = events_in_window['duration'].mean()
-                        std_duration = events_in_window['duration'].std()
+                        std_duration = events_in_window['duration'].std(ddof=0)
                     start_timestamps = events_in_window.index.get_level_values('datetime')
                     end_timestamps = events_in_window.index.get_level_values('datetime') + events_in_window['duration'].apply(lambda duration: datetime.timedelta(seconds=duration))
                     # event_durations_in_window = [np.min(
