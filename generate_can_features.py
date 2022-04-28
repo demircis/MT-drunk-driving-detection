@@ -1,9 +1,10 @@
 import pandas as pd
 import numpy as np
 import datetime
+from joblib import Parallel, delayed
+from tqdm import tqdm
 
 from get_features import get_features
-
 
 GROUPING_COLUMNS = ['subject_id', 'subject_state', 'subject_scenario']
 
@@ -24,6 +25,52 @@ EVENTS = ['brake', 'brake_to_gas', 'gas', 'gas_to_brake', 'overtaking', 'road_si
 
 STATS = ['mean', 'std', 'min', 'max', 'q5', 'q95', 'range', 'iqrange', 'iqrange_5_95', 'sum', 'energy',
         'skewness', 'kurtosis', 'peaks', 'rms', 'lineintegral', 'n_above_mean', 'n_below_mean', 'n_sign_changes', 'ptp']
+
+# REMOVE_PER_EVENT = {'brake': ['gas', 'gas_acc', 'gas_jerk', 'gas_vel'],
+#                     'brake_to_gas': ['gas', 'gas_acc', 'gas_jerk', 'gas_vel', 'brake'],
+#                     'gas': ['brake', 'brake_acc', 'brake_jerk', 'brake_vel'],
+#                     'gas_to_brake': ['brake', 'brake_acc', 'brake_jerk', 'brake_vel', 'gas'],
+#                     'overtaking': [],
+#                     'road_sign': [],
+#                     'turning': []
+#                     }
+
+SELECTED_SIGNALS = [
+    'brake',
+    'brake_acc',
+    'brake_jerk',
+    'brake_vel',
+    'gas',
+    'gas_acc',
+    'gas_jerk',
+    'gas_vel',
+    'steer',
+    'SteerSpeed',
+    'SteerSpeed_acc',
+    'SteerSpeed_jerk',
+    'speed_limit_exceeded',
+    'SpeedDif',
+    'Dhw',
+    'is_crossing_lane_left',
+    'is_crossing_lane_right',
+    'lane_crossing',
+    'lane_distance_left_edge',
+    'lane_distance_right_edge',
+    'Ttc',
+    'TtcOpp',
+    'acc',
+    'acc_jerk',
+    'velocity',
+    'latvel_acc',
+    'latvel_jerk',
+    'YawRate_acc',
+    'YawRate_jerk',
+    'YawRate'
+]
+
+SELECTED_STATS = ['mean', 'std', 'min', 'max', 'q5', 'q95', 'iqrange', 'iqrange_5_95', 'skewness', 'kurtosis', 'peaks', 'rms']
+
+SUM_COLUMNS = ['lane_crossing', 'lane_crossing_left', 'lane_crossing_right', 'is_crossing_lane', 'is_crossing_lane_left', 'is_crossing_lane_right', 'speed_limit_exceeded']
 
 
 def calc_can_data_features(window_sizes):
@@ -68,7 +115,7 @@ def calc_event_features_in_window(window_sizes):
                 event_data = pd.read_parquet('out/can_data_{}_events_features.parquet'.format(event))
                 event_data = event_data.loc[subject_id, subject_state, subject_scenario, :]
                 event_info = []
-                for timestamp in window_timestamps:
+                def get_event_info_per_window(timestamp, event_info):
                     min_timestamp = timestamp
                     max_timestamp = timestamp + datetime.timedelta(seconds=window_size)
                     start_timestamps = event_data.index.get_level_values('datetime')
@@ -114,8 +161,25 @@ def calc_event_features_in_window(window_sizes):
                         'std_ratio': std_ratio,
                         'count': count
                     }
+                    events_in_window_timestamps = events_in_window.index.get_level_values('datetime')
+                    feature_window_size = (events_in_window_timestamps.max() - events_in_window_timestamps.min()).total_seconds() * 1000
+                    if not np.isnan(feature_window_size):
+                        feature_window_size = round(feature_window_size)
+                    events_in_window_subset = events_in_window[select_columns(events_in_window)].copy()
+                    features_dict = None
+                    if events_in_window_subset.empty:
+                        features_dict = events_in_window_subset.to_dict('list')
+                        features_dict = {event + '_' + key: [0] for key, _ in features_dict.items()}
+                    else:
+                        events_in_window_subset.loc[:, 'timestamp'] = events_in_window_timestamps
+                        features = get_features(events_in_window_subset, feature_window_size, num_cores=1, step_size=str(feature_window_size + 1) + 'ms', disable_progress_bar=True)
+                        features_dict = features.to_dict('list')
+                    features_dict = {event + '_' + key: values[0] for key, values in features_dict.items()}
                     event_info_dict = {event + '_' + key: value for key, value in event_info_dict.items()}
+                    event_info_dict.update(features_dict)
                     event_info.append(event_info_dict)
+                    return event_info
+                event_info = Parallel(n_jobs=8)(delayed(get_event_info_per_window)(timestamp, event_info) for timestamp in tqdm(window_timestamps))
                 event_info_for_windows.append(pd.DataFrame(event_info).set_index(window_timestamps))
             result = pd.concat(event_info_for_windows, axis=1)
             return result
@@ -123,3 +187,16 @@ def calc_event_features_in_window(window_sizes):
         can_data_features = pd.read_parquet('out/can_data_features_vehicle_behavior_windowsize_{}s.parquet'.format(window_size))
         events_per_window = can_data_features.groupby(['subject_id', 'subject_state', 'subject_scenario']).apply(get_event_info_for_windows)
         events_per_window.to_parquet('out/can_data_events_per_window_windowsize_{}s.parquet'.format(window_size))
+        print('done')
+
+
+def select_columns(data):
+    stat_columns_list = [
+        [col for col in data.columns if col in 
+            [sig + '_' + s for s in (SELECTED_STATS + ['sum'] if sig in SUM_COLUMNS else SELECTED_STATS)]
+        ] for sig in SELECTED_SIGNALS
+    ]
+    stat_columns = []
+    for item in stat_columns_list:
+        stat_columns += item
+    return stat_columns

@@ -7,7 +7,7 @@ import multiprocessing
 from joblib import Parallel, delayed
 from tqdm import tqdm
 
-def get_features(data, epoch_width, num_cores=0, step_size="1S"):
+def get_features(data, epoch_width, num_cores=0, step_size="1S", disable_progress_bar=False):
     if not num_cores >= 1:
         num_cores = multiprocessing.cpu_count()
     #print('using # cores: ', num_cores)
@@ -21,7 +21,7 @@ def get_features(data, epoch_width, num_cores=0, step_size="1S"):
     inputs = pd.date_range(start_time, end_time, freq=step_size)
 
     results = Parallel(n_jobs=num_cores, backend='multiprocessing')(
-        delayed(get_sliding_window)(input_data, epoch_width=epoch_width, i=k) for k in tqdm(inputs))
+        delayed(get_sliding_window)(input_data, epoch_width=epoch_width, i=k) for k in tqdm(inputs, disable=disable_progress_bar))
     results = pd.DataFrame(list(filter(None, results)))  # filter out None values
     if epoch_width == 0:
         results.insert(results.columns.get_loc('datetime')+1, 'duration', np.nan)
