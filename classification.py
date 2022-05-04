@@ -88,7 +88,7 @@ def do_sliding_window_classification(window_sizes, overlap_percentages, classifi
 
                     can_data_features_scenario = can_data_features_step.loc[:, :, scenario, :]
 
-                    X, y, weights, groups = prepare_dataset(can_data_features_scenario, mode)
+                    X, y, weights, groups = prepare_dataset(can_data_features_scenario, mode, scenario)
 
                     clf = get_classifier(classifier, mode)
                     
@@ -156,6 +156,45 @@ def do_event_classification(classifier, mode):
                     )
 
 
+def do_events_sliding_window_classification(classifier, window_sizes, mode):
+    for window_size in window_sizes:
+        can_data_events_per_window = pd.read_parquet('out/can_data_events_per_window_windowsize_{}s.parquet'.format(window_size))
+
+        if classifier == 'log_regression':
+                can_data_events_per_window.dropna(axis=1, inplace=True)
+        
+        for scenario in SCENARIOS:
+            print('window size: {}s, scenario: {}'.format(
+                    window_size, scenario
+                ))
+            
+            can_data_events_per_window_scenario = can_data_events_per_window.loc[:, :, scenario, :]
+
+            X, y, weights, groups = prepare_dataset(can_data_events_per_window_scenario, mode, scenario)
+
+            clf = get_classifier(classifier, mode)
+
+            subject_ids = np.unique(groups)
+
+            # max_features = 20
+            # best_X, selected_features = sequential_feature_selection(max_features, clf, can_data_events_per_window_scenario, X, y, groups, weights, len(subject_ids)-1)
+            # selected_features.to_csv(
+            #         'out/results/{}_{}_selected_features_events_per_window_windowsize_{}_{}.csv'.format(
+            #             classifier, mode, window_size, scenario
+            #             ), index=True, header=['selected_features']
+            #         )
+
+            cv = cross_validate(estimator=clf, X=X, y=y, scoring=SCORING, return_estimator=True, verbose=0,
+                    return_train_score=True, cv=LOGO, groups=groups, n_jobs=len(subject_ids), fit_params={'sample_weight': weights})
+
+            results = collect_results(cv, subject_ids)
+            results.to_csv(
+                        'out/results/{}_{}_pred_results_events_per_window_windowsize_{}_{}.csv'.format(
+                            classifier, mode, window_size, scenario
+                            ), index=True, header=True
+                        )
+
+
 def do_combined_classification(classifier, window_sizes, mode):
     for window_size in window_sizes:
         for combo in SIGNAL_COMBOS:
@@ -188,7 +227,7 @@ def do_combined_classification(classifier, window_sizes, mode):
                 
                 can_data_combined_scenario = can_data_combined.loc[:, :, scenario, :]
 
-                X, y, weights, groups = prepare_dataset(can_data_combined_scenario, mode)
+                X, y, weights, groups = prepare_dataset(can_data_combined_scenario, mode, scenario)
 
                 clf = get_classifier(classifier, mode)
 
@@ -216,7 +255,7 @@ def do_combined_classification(classifier, window_sizes, mode):
 def select_columns(data):
     stat_columns_list = [
         [col for col in data.columns if col in 
-            [sig + '_' + s for s in (STATS + ['sum'] if sig in SUM_COLUMNS else STATS)]
+            [sig + '_' + s for s in (['sum'] if sig in SUM_COLUMNS else STATS)]
         ] for sig in SELECTED_SIGNALS
     ]
     stat_columns = []
@@ -225,7 +264,7 @@ def select_columns(data):
     return stat_columns
 
 
-def prepare_dataset(data, mode):
+def prepare_dataset(data, mode, scenario=None):
     input_data = data.copy()
     input_data.loc[:, 'label'] = 0
     if mode == 'binary':
@@ -237,7 +276,9 @@ def prepare_dataset(data, mode):
         input_data.loc[(slice(None), 'above', slice(None), slice(None)), 'label'] = 2
     else:
         raise ValueError('Received unknown classifier mode string!')
-
+    
+    if scenario == 'highway':
+        input_data.drop(columns=list(input_data.filter(regex = 'TtcOpp')), inplace=True)
     X = input_data.drop(columns='label').to_numpy(dtype=np.float64)
     
     y = input_data['label'].to_numpy()
