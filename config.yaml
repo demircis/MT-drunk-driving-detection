@@ -5,8 +5,9 @@ parse_scenario_info: False
 preprocess: False
 generate_features: False
 do_classification: True
+per_scenario: True
 window_sizes: [60]
 overlap_percentages: [null]
-classifier: 'log_regression'
+classifier_type: 'log_regression'
 dataset: 'sliding_window'
 clf_mode: 'binary'
