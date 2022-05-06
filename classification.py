@@ -8,38 +8,47 @@ SIGNAL_COMBOS = [['driver_behavior', 'vehicle_behavior'], ['driver_behavior', 'v
 
 EVENTS = ['brake', 'brake_to_gas', 'gas', 'gas_to_brake', 'overtaking', 'road_sign', 'turning']
 
-SELECTED_SIGNALS = [
-    'brake',
-    'brake_acc',
-    'brake_jerk',
-    'brake_vel',
-    'gas',
-    'gas_acc',
-    'gas_jerk',
-    'gas_vel',
-    'steer',
-    'SteerSpeed',
-    'SteerSpeed_acc',
-    'SteerSpeed_jerk',
-    'speed_limit_exceeded',
-    'SpeedDif',
-    'Dhw',
-    'is_crossing_lane_left',
-    'is_crossing_lane_right',
-    'lane_crossing',
-    'lane_distance_left_edge',
-    'lane_distance_right_edge',
-    'Ttc',
-    'TtcOpp',
-    'acc',
-    'acc_jerk',
-    'velocity',
-    'latvel_acc',
-    'latvel_jerk',
-    'YawRate_acc',
-    'YawRate_jerk',
-    'YawRate'
-]
+SELECTED_SIGNALS = {
+    'driver_behavior': [
+        'brake',
+        'brake_acc',
+        'brake_jerk',
+        'brake_vel',
+        'gas',
+        'gas_acc',
+        'gas_jerk',
+        'gas_vel',
+        'steer',
+        'SteerError',
+        'SteerSpeed',
+        'SteerSpeed_acc',
+        'SteerSpeed_jerk'
+    ],
+    'vehicle_behavior': [
+        'acc',
+        'acc_jerk',
+        'velocity',
+        'latvel_acc',
+        'latvel_jerk',
+        'YawRate_acc',
+        'YawRate_jerk',
+        'YawRate'
+    ],
+    'navi': [
+        'speed_limit_exceeded',
+        'SpeedDif'
+    ],
+    'radar': [
+        'Dhw',
+        'is_crossing_lane_left',
+        'is_crossing_lane_right',
+        'lane_crossing',
+        'lane_distance_left_edge',
+        'lane_distance_right_edge',
+        'Ttc',
+        'TtcOpp'
+    ]
+}
 
 STATS = ['mean', 'std', 'min', 'max', 'q5', 'q95', 'iqrange', 'iqrange_5_95', 'skewness', 'kurtosis', 'peaks', 'rms']
 
@@ -54,13 +63,13 @@ def do_sliding_window_classification(window_sizes, classifier_type, classifier_m
             can_data_features = []
             for signal in combo:
                 signal_string += '_' + signal
-                can_data_features.append(pd.read_parquet('out/can_data_features_{}_windowsize_{}s.parquet'.format(signal, window_size)))
+                can_data_features.append(
+                    pd.read_parquet('out/can_data_features_{}_windowsize_{}s.parquet'.format(signal, window_size), columns=select_columns(signal))
+                )
             can_data_features = pd.concat(can_data_features, axis=1)
             
             if classifier_type == 'log_regression':
                 can_data_features.dropna(axis=1, inplace=True)
-
-            can_data_features = can_data_features[select_columns(can_data_features)]
 
             clf = Classifier(classifier_type, classifier_mode, max_features=50)
             if per_scenario:
@@ -103,13 +112,13 @@ def do_sliding_window_classification(window_sizes, classifier_type, classifier_m
 def do_combined_events_classification(classifier_type, classifier_mode, per_scenario):
     can_data_events = []
     for event in EVENTS:
-        can_data_events.append(pd.read_parquet('out/can_data_{}_events_features.parquet'.format(event)))
+        can_data_events.append(
+            pd.read_parquet('out/can_data_{}_events_features.parquet'.format(event), columns=['duration'] + select_columns())
+        )
     can_data_events = pd.concat(can_data_events, axis=0)
 
     if classifier_type == 'log_regression':
         can_data_events.dropna(axis=1, inplace=True)
-
-    can_data_events = can_data_events[['duration'] + select_columns(can_data_events)]
 
     clf = Classifier(classifier_type, classifier_mode, max_features=20)
     if per_scenario:
@@ -145,12 +154,10 @@ def do_combined_events_classification(classifier_type, classifier_mode, per_scen
 
 def do_per_event_classification(classifier_type, classifier_mode, per_scenario):
     for event in EVENTS:
-        can_data_events = pd.read_parquet('out/can_data_{}_events_features.parquet'.format(event))
+        can_data_events = pd.read_parquet('out/can_data_{}_events_features.parquet'.format(event), columns=['duration'] + select_columns())
 
         if classifier_type == 'log_regression':
             can_data_events.dropna(axis=1, inplace=True)
-
-        can_data_events = can_data_events[['duration'] + select_columns(can_data_events)]
 
         clf = Classifier(classifier_type, classifier_mode, max_features=20)
 
@@ -192,7 +199,9 @@ def do_per_event_classification(classifier_type, classifier_mode, per_scenario):
 
 def do_events_sliding_window_classification(window_sizes, classifier_type, classifier_mode, per_scenario):
     for window_size in window_sizes:
-        can_data_events_per_window = pd.read_parquet('out/can_data_events_per_window_windowsize_{}s.parquet'.format(window_size))
+        can_data_events_per_window = pd.read_parquet(
+            'out/can_data_events_per_window_windowsize_{}s.parquet'.format(window_size), columns=['duration'] + select_columns()
+            )
 
         if classifier_type == 'log_regression':
                 can_data_events_per_window.dropna(axis=1, inplace=True)
@@ -242,18 +251,19 @@ def do_combined_classification(window_sizes, classifier_type, classifier_mode, p
             can_data_features = []
             for signal in combo:
                 signal_string += '_' + signal
-                can_data_features.append(pd.read_parquet('out/can_data_features_{}_windowsize_{}s.parquet'.format(signal, window_size)))
+                can_data_features.append(
+                    pd.read_parquet('out/can_data_features_{}_windowsize_{}s.parquet'.format(signal, window_size), columns=['duration'] + select_columns(signal))
+                )
             can_data_features = pd.concat(can_data_features, axis=1)
 
             can_data_features = can_data_features.loc[:,~can_data_features.columns.duplicated()]
-            can_data_features = can_data_features[['duration'] + select_columns(can_data_features)]
             
             can_data_events = []
             for event in EVENTS:
-                can_data_events.append(pd.read_parquet('out/can_data_{}_events_features.parquet'.format(event)))
+                can_data_events.append(
+                    pd.read_parquet('out/can_data_{}_events_features.parquet'.format(event), columns=['duration'] + select_columns())
+                    )
             can_data_events = pd.concat(can_data_events, axis=0)
-
-            can_data_events = can_data_events[['duration'] + select_columns(can_data_events)]
 
             can_data_combined = pd.concat((can_data_features, can_data_events), axis=0)
 
@@ -305,15 +315,15 @@ def do_signal_combo_classification(classifier_type, classifier_mode):
         can_data_features = []
         for signal in combo:
             signal_string += '_' + signal
-            can_data_features.append(pd.read_parquet('out/can_data_features_{}_windowsize_{}s.parquet'.format(signal, window_size)))
+            can_data_features.append(
+                pd.read_parquet('out/can_data_features_{}_windowsize_{}s.parquet'.format(signal, window_size), columns=select_columns(signal))
+                )
         can_data_features = pd.concat(can_data_features, axis=1)
 
         print('signals: {}'.format(signal_string))
 
         if classifier_type == 'log_regression':
             can_data_features.dropna(axis=1, inplace=True)
-
-        can_data_features = can_data_features[select_columns(can_data_features)]
 
         clf = Classifier(classifier_type, classifier_mode, max_features=None)
 
@@ -333,13 +343,13 @@ def do_window_size_classification(window_sizes, classifier_type, classifier_mode
         can_data_features = []
         for signal in ['driver_behavior', 'vehicle_behavior', 'navi', 'radar']:
             signal_string += '_' + signal
-            can_data_features.append(pd.read_parquet('out/can_data_features_{}_windowsize_{}s.parquet'.format(signal, window_size)))
+            can_data_features.append(
+                pd.read_parquet('out/can_data_features_{}_windowsize_{}s.parquet'.format(signal, window_size), columns=select_columns(signal))
+            )
         can_data_features = pd.concat(can_data_features, axis=1)
         
         if classifier_type == 'log_regression':
             can_data_features.dropna(axis=1, inplace=True)
-
-        can_data_features = can_data_features[select_columns(can_data_features)]
 
         clf = Classifier(classifier_type, classifier_mode, max_features=None)
                 
@@ -359,7 +369,9 @@ def do_overlap_percentage_classification(overlap_percentages, classifier_type, c
         can_data_features = []
         for signal in ['driver_behavior', 'vehicle_behavior', 'navi', 'radar']:
             signal_string += '_' + signal
-            can_data_features.append(pd.read_parquet('out/can_data_features_{}_windowsize_{}s.parquet'.format(signal, window_size)))
+            can_data_features.append(
+                pd.read_parquet('out/can_data_features_{}_windowsize_{}s.parquet'.format(signal, window_size), columns=select_columns(signal))
+                )
         can_data_features = pd.concat(can_data_features, axis=1)
         
         if classifier_type == 'log_regression':
@@ -369,8 +381,6 @@ def do_overlap_percentage_classification(overlap_percentages, classifier_type, c
         if overlap_percentage is not None:
             step = window_size - int(overlap_percentage * window_size)
         can_data_features_step = can_data_features[(can_data_features.groupby(['subject_id', 'subject_state', 'subject_scenario']).cumcount() % step) == 0]
-
-        can_data_features_step = can_data_features_step[select_columns(can_data_features_step)]
 
         clf = Classifier(classifier_type, classifier_mode, max_features=None)
         print('window size: {}s'.format(window_size))
@@ -384,12 +394,10 @@ def do_overlap_percentage_classification(overlap_percentages, classifier_type, c
                 )
 
 
-def select_columns(data):
+def select_columns(signals=None):
     stat_columns_list = [
-        [col for col in data.columns if col in 
-            [sig + '_' + s for s in (['mean', 'std', 'sum'] if sig in SUM_COLUMNS else STATS)]
-        ] for sig in SELECTED_SIGNALS
-    ]
+        [sig + '_' + s for s in (['mean', 'std', 'sum'] if sig in SUM_COLUMNS else STATS)]
+        for sig in (SELECTED_SIGNALS[signals] if signals is not None else list(SELECTED_SIGNALS.values()))]
     stat_columns = []
     for item in stat_columns_list:
         stat_columns += item
