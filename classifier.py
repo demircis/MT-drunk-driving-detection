@@ -5,7 +5,7 @@ patch_sklearn()
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
-from xgboost import XGBRFClassifier
+from lightgbm import LGBMClassifier
 from mlxtend.feature_selection import SequentialFeatureSelector
 from sklearn.model_selection import cross_validate
 from sklearn.model_selection import LeaveOneGroupOut
@@ -72,7 +72,7 @@ class Classifier:
                 self.estimator = LogisticRegression(
                 penalty='l1', solver='saga', max_iter=1000, tol=1e-2, random_state=self.RANDOM_STATE)
             elif self.classifier_type == 'random_forest':
-                self.estimator = XGBRFClassifier(objective='binary:logistic', eval_metric='logloss', n_estimators=100, use_label_encoder=False, n_jobs=1, random_state=self.RANDOM_STATE)
+                self.estimator = LGBMClassifier(objective='binary', n_estimators=100, n_jobs=1, random_state=self.RANDOM_STATE)
             else:
                 raise ValueError('Received unknown classifier string!')
         elif self.classifier_mode == 'multiclass':
@@ -80,7 +80,7 @@ class Classifier:
                 self.estimator = LogisticRegression(
                 penalty='l1', solver='saga', max_iter=1000, tol=1e-2, random_state=self.RANDOM_STATE)
             elif self.classifier_type == 'random_forest':
-                self.estimator = XGBRFClassifier(objective='multi:softmax', n_estimators=100, use_label_encoder=False, n_jobs=1, random_state=self.RANDOM_STATE)
+                self.estimator = LGBMClassifier(objective='multiclass', n_estimators=100, n_jobs=1, random_state=self.RANDOM_STATE)
             else:
                 raise ValueError('Received unknown classifier string!')
     
@@ -93,7 +93,7 @@ class Classifier:
         best_X = None
         selected_features = None
         if self.max_features is not None:
-            best_X, selected_features = self.sequential_feature_selection(self.max_features, data, X, y, groups, weights, len(subject_ids)-1)
+            best_X, selected_features = self.sequential_feature_selection(data, X, y, groups, weights, len(subject_ids)-1)
         else:
             best_X = X
 
@@ -134,8 +134,8 @@ class Classifier:
         return X, y, weights, groups
 
 
-    def sequential_feature_selection(self, max_features, data, X, y, groups=None, weights=None, n_jobs=1):
-        sfs = SequentialFeatureSelector(self.estimator, k_features=(1, max_features), scoring='balanced_accuracy', cv=self.LOGO, n_jobs=n_jobs, verbose=2)
+    def sequential_feature_selection(self, data, X, y, groups=None, weights=None, n_jobs=1):
+        sfs = SequentialFeatureSelector(self.estimator, k_features=(1, self.max_features), scoring='balanced_accuracy', cv=self.LOGO, n_jobs=n_jobs, verbose=2)
         best_X = sfs.fit_transform(X, y, groups=groups, sample_weight=weights)
         print('\nbest score (with {} features): {}'.format(len(list(sfs.k_feature_idx_)), sfs.k_score_))
         selected_features = pd.Series(data.columns[list(sfs.k_feature_idx_)])
