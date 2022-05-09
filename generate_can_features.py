@@ -4,6 +4,7 @@ import numpy as np
 import datetime
 from joblib import Parallel, delayed
 from tqdm import tqdm
+from event_functions import calculate_event_stats
 
 from get_features import get_features
 
@@ -79,25 +80,28 @@ def calc_can_data_features(window_sizes):
     print('done')
 
 
-def filter_can_data_event_columns():
+def calc_can_data_event_features():
+    print('Calculate CAN data event features')
+    can_data = pd.read_parquet('out/can_data.parquet')
+    can_data = can_data[(can_data['subject_id'] == '001') | (can_data['subject_id'] == '006')]
     for event in EVENTS:
-        can_data_event = pd.read_parquet('out/can_data_{}_events.parquet'.format(event))
         columns_per_signal = [[signal + '_' + stat for signal in DRIVER_BEHAVIOR + VEHICLE_BEHAVIOR + NAVI + RADAR] for stat in STATS]
         selected_columns = []
         for sublist in columns_per_signal:
             selected_columns += sublist
-        can_data_event_filtered = None
+        can_data_event_features = can_data.groupby(GROUPING_COLUMNS).apply(lambda x: calculate_event_stats(x, event))
         if event == 'road_sign':
-            can_data_event_filtered = can_data_event[['duration', 'sign_type'] + selected_columns]
+            can_data_event_features = can_data_event_features[['duration', 'sign_type'] + selected_columns]
         else:
-            can_data_event_filtered = can_data_event[['duration'] + selected_columns]
-        can_data_event_filtered.to_parquet('out/can_data_{}_events_features.parquet'.format(event))
+            can_data_event_features = can_data_event_features[['duration'] + selected_columns]
+        can_data_event_features.to_parquet('out/can_data_{}_events_features.parquet'.format(event))
+    print('done')
 
 
 def calc_event_features_in_window(window_sizes):
     print('Calculate event features in sliding windows')
     for window_size in window_sizes:
-        can_data_features = pd.read_parquet('out/can_data_features_vehicle_behavior_windowsize_{}s.parquet'.format(window_size)).loc[['001', '006'], 'above', 'town', :]
+        can_data_features = pd.read_parquet('out/can_data_features_vehicle_behavior_windowsize_{}s.parquet'.format(window_size)).loc[['001', '006']]
         events_per_window = can_data_features.groupby(['subject_id', 'subject_state', 'subject_scenario']).apply(lambda x: get_event_info_for_windows(window_size, x))
         events_per_window.to_parquet('out/can_data_events_per_window_windowsize_{}s.parquet'.format(window_size))
     print('done')

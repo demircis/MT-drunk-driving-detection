@@ -5,7 +5,7 @@ import re
 import datetime
 import pytz
 import os
-from event_functions import adjust_index, brake_to_gas, calculate_event_stats, gas_to_brake, get_overtaking_events, get_road_sign_events, get_turning_events, validate_start_end_indices
+from event_functions import validate_start_end_indices
 from id_extraction import get_distance_based_path_and_segment_ids, get_path_and_segment_ids
 
 
@@ -83,7 +83,7 @@ def get_lane_switching(data, direction=''):
         return (counts[1] == 1).astype(int) if 1 in counts else 0
     lane_switching = data[data['lane_crossing'+direction] == 1].apply(calc_lane_switching, axis=1)
     if lane_switching.empty:
-        lane_switching = pd.Series()
+        lane_switching = pd.Series(dtype=np.float64)
     lane_switching = lane_switching.reindex(data.index, fill_value=0)
     return lane_switching
 
@@ -104,13 +104,6 @@ def do_preprocessing(full_study, data_freq=30):
     SIGNALS_DERIVE_ACCELERATION = ['gas_vel', 'brake_vel', 'latvel', 'SteerSpeed']
     SIGNALS_DERIVE_JERK = ['gas_acc', 'brake_acc', 'latvel_acc', 'SteerSpeed_acc', 'acc']
 
-    gas_event_data = []
-    brake_to_gas_event_data = []
-    brake_event_data = []
-    gas_to_brake_event_data = []
-    overtaking_event_data = []
-    turning_event_data = []
-    road_sign_event_data = []
     data = []
 
     if full_study:
@@ -136,8 +129,6 @@ def do_preprocessing(full_study, data_freq=30):
     timestamp_re = re.compile(r'(\d{4})-(\d{2})-(\d{2})--(\d{2})-(\d{2})-(\d{2}).flv')
 
     lanes_df = pd.read_csv('out/scenario_information.csv')
-
-    road_signs_df = pd.read_csv('out/road_sign_information.csv')
 
     for subject in subject_folders:
         subject_id_match = subject_re.search(subject)
@@ -267,137 +258,10 @@ def do_preprocessing(full_study, data_freq=30):
             can_data_filtered = do_derivation_of_signals(can_data_filtered, SIGNALS_DERIVE_ACCELERATION, '_acc', data_freq, '_vel')
             can_data_filtered = do_derivation_of_signals(can_data_filtered, SIGNALS_DERIVE_JERK, '_jerk', data_freq, '_acc')
 
-            can_data_event = can_data_filtered.copy()
             can_data_filtered.insert(0, 'subject_id', subject_id)
             can_data_filtered.insert(1, 'subject_state', state)
             can_data_filtered.insert(2, 'subject_scenario', scenario)
-            can_data_filtered.reset_index(drop=True, inplace=True)
-            data.append(can_data_filtered)
-
-            positive_brake_events = (can_data_event[can_data_event['brake'] > 0]
-                .groupby((can_data_event['brake'] == 0).cumsum(), as_index=False)
-                .filter(lambda x: (x['gas'] == 0).all())
-                .groupby((can_data_event['brake'] == 0).cumsum(), as_index=False))
-            zero_gas_events = can_data_event[can_data_event['gas'] == 0].groupby((can_data_event['gas'] > 0).cumsum(), as_index=False)
-            gas_to_brake_event = zero_gas_events.apply(gas_to_brake)
-            gas_to_brake_event.dropna(axis=0, how='all', inplace=True)
-            gas_to_brake_event = adjust_index(gas_to_brake_event, 1, subject_id, state, scenario)
-            brake_events_stats = calculate_event_stats(positive_brake_events)
-            brake_events_stats.dropna(axis=0, how='all', inplace=True)
-            brake_events_stats = adjust_index(brake_events_stats, 1, subject_id, state, scenario)
-
-            brake_event_data.append(brake_events_stats)
-            gas_to_brake_event_data.append(gas_to_brake_event)
-
-            positive_gas_events = (can_data_event[can_data_event['gas'] > 0]
-                .groupby((can_data_event['gas'] == 0).cumsum(), as_index=False)
-                .filter(lambda x: (x['brake'] == 0).all())
-                .groupby((can_data_event['gas'] == 0).cumsum(), as_index=False))
-            zero_brake_events = can_data_event[can_data_event['brake'] == 0].groupby((can_data_event['brake'] > 0).cumsum(), as_index=False)
-            brake_to_gas_event = zero_brake_events.apply(brake_to_gas)
-            brake_to_gas_event.dropna(axis=0, how='all', inplace=True)
-            brake_to_gas_event = adjust_index(brake_to_gas_event, 1, subject_id, state, scenario)
-            gas_events_stats = calculate_event_stats(positive_gas_events)
-            gas_events_stats.dropna(axis=0, how='all', inplace=True)
-            gas_events_stats = adjust_index(gas_events_stats, 1, subject_id, state, scenario)
-
-            gas_event_data.append(gas_events_stats)
-            brake_to_gas_event_data.append(brake_to_gas_event)
-
-            lane_zero_to_one = can_data_event[can_data_event['lane_number'] == 1].groupby((can_data_event['lane_number'] == 0).cumsum(), as_index=False)
-            overtaking_events_stats = get_overtaking_events(can_data_event, lane_zero_to_one)
-            if scenario == 'highway':
-                lane_one_to_two = can_data_event[can_data_event['lane_number'] == 2].groupby((can_data_event['lane_number'] == 1).cumsum(), as_index=False)
-                overtaking_events_stats = pd.concat((overtaking_events_stats, get_overtaking_events(can_data_event, lane_one_to_two)))
-            else:
-                turning_events_stats = get_turning_events(can_data_event, subject_id, state, scenario)
-                turning_event_data.append(turning_events_stats)
-            
-            overtaking_events_stats.dropna(axis=0, how='all', inplace=True)
-            overtaking_events_stats = adjust_index(overtaking_events_stats, 1, subject_id, state, scenario)
-            overtaking_event_data.append(overtaking_events_stats)
-
-            SPEED_LIMIT_30 = 1
-            SPEED_LIMIT_50 = 2
-            SPEED_LIMIT_60 = 140
-            SPEED_LIMIT_80 = 141
-            SPEED_LIMIT_100 = 4
-            SPEED_LIMIT_120 = 5
-            RIGHT_OF_WAY = 20
-            RIGHT_OF_WAY_LEFT = 21
-            RIGHT_OF_WAY_RIGHT = 22
-            STOP_SIGN = 24
-            SPEED_BUMP = 94
-            PED_CROSSING_WARNING = 107
-            PED_CROSSING = 114
-
-            signs_for_scenario = road_signs_df[road_signs_df['scenario'] == scenario]
-            speed_limit_30 = signs_for_scenario[signs_for_scenario['signType'] == SPEED_LIMIT_30]
-            speed_limit_50 = signs_for_scenario[signs_for_scenario['signType'] == SPEED_LIMIT_50]
-            speed_limit_60 = signs_for_scenario[signs_for_scenario['signType'] == SPEED_LIMIT_60]
-            speed_limit_80 = signs_for_scenario[signs_for_scenario['signType'] == SPEED_LIMIT_80]
-            speed_limit_100 = signs_for_scenario[signs_for_scenario['signType'] == SPEED_LIMIT_100]
-            speed_limit_120 = signs_for_scenario[signs_for_scenario['signType'] == SPEED_LIMIT_120]
-
-            speed_limit_30_events_stats = get_road_sign_events(speed_limit_30, can_data_event, SPEED_LIMIT_30, subject_id, state, scenario)
-            speed_limit_50_events_stats = get_road_sign_events(speed_limit_50, can_data_event, SPEED_LIMIT_50, subject_id, state, scenario)
-            speed_limit_60_events_stats = get_road_sign_events(speed_limit_60, can_data_event, SPEED_LIMIT_60, subject_id, state, scenario)
-            speed_limit_80_events_stats = get_road_sign_events(speed_limit_80, can_data_event, SPEED_LIMIT_80, subject_id, state, scenario)
-            speed_limit_100_events_stats = get_road_sign_events(speed_limit_100, can_data_event, SPEED_LIMIT_100, subject_id, state, scenario)
-            speed_limit_120_events_stats = get_road_sign_events(speed_limit_120, can_data_event, SPEED_LIMIT_120, subject_id, state, scenario)
-
-            right_of_way = signs_for_scenario[(
-                (signs_for_scenario['signType'] == RIGHT_OF_WAY)
-                | (signs_for_scenario['signType'] == RIGHT_OF_WAY_LEFT)
-                | (signs_for_scenario['signType'] == RIGHT_OF_WAY_RIGHT))]
-            stop_signs = signs_for_scenario[signs_for_scenario['signType'] == STOP_SIGN]
-            speed_bumps = signs_for_scenario[signs_for_scenario['signType'] == SPEED_BUMP]
-            ped_crossing_warnings = signs_for_scenario[signs_for_scenario['signType'] == PED_CROSSING_WARNING]
-            ped_crossings = signs_for_scenario[signs_for_scenario['signType'] == PED_CROSSING]
-
-            right_of_way_events_stats = get_road_sign_events(right_of_way, can_data_event, RIGHT_OF_WAY, subject_id, state, scenario)
-            stop_sign_events_stats = get_road_sign_events(stop_signs, can_data_event, STOP_SIGN, subject_id, state, scenario)
-            speed_bumps_events_stats = get_road_sign_events(speed_bumps, can_data_event, SPEED_BUMP, subject_id, state, scenario)
-            ped_crossing_warning_events_stats = get_road_sign_events(ped_crossing_warnings, can_data_event, PED_CROSSING_WARNING, subject_id, state, scenario)
-            ped_crossings_events_stats = get_road_sign_events(ped_crossings, can_data_event, PED_CROSSING, subject_id, state, scenario)
-
-            road_sign_events_stats = pd.concat((
-                speed_limit_30_events_stats,
-                speed_limit_50_events_stats,
-                speed_limit_60_events_stats,
-                speed_limit_80_events_stats,
-                speed_limit_100_events_stats,
-                speed_limit_120_events_stats,
-                right_of_way_events_stats,
-                stop_sign_events_stats,
-                speed_bumps_events_stats,
-                ped_crossing_warning_events_stats,
-                ped_crossings_events_stats
-                ))
-            road_sign_event_data.append(road_sign_events_stats)
-
-            
+            data.append(can_data_filtered)   
 
     data = pd.concat(data)
     data.to_parquet("out/can_data.parquet")
-
-    brake_event_data = pd.concat(brake_event_data)
-    brake_event_data.to_parquet('out/can_data_brake_events.parquet')
-
-    gas_to_brake_event_data = pd.concat(gas_to_brake_event_data)
-    gas_to_brake_event_data.to_parquet('out/can_data_gas_to_brake_events.parquet')
-
-    gas_event_data = pd.concat(gas_event_data)
-    gas_event_data.to_parquet('out/can_data_gas_events.parquet')
-
-    brake_to_gas_event_data = pd.concat(brake_to_gas_event_data)
-    brake_to_gas_event_data.to_parquet('out/can_data_brake_to_gas_events.parquet')
-
-    overtaking_event_data = pd.concat(overtaking_event_data)
-    overtaking_event_data.to_parquet('out/can_data_overtaking_events.parquet')
-
-    turning_event_data = pd.concat(turning_event_data)
-    turning_event_data.to_parquet('out/can_data_turning_events.parquet')
-
-    road_sign_event_data = pd.concat(road_sign_event_data)
-    road_sign_event_data.to_parquet('out/can_data_road_sign_events.parquet')
