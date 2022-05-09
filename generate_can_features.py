@@ -83,7 +83,6 @@ def calc_can_data_features(window_sizes):
 def calc_can_data_event_features():
     print('Calculate CAN data event features')
     can_data = pd.read_parquet('out/can_data.parquet')
-    can_data = can_data[(can_data['subject_id'] == '001') | (can_data['subject_id'] == '006')]
     for event in EVENTS:
         columns_per_signal = [[signal + '_' + stat for signal in DRIVER_BEHAVIOR + VEHICLE_BEHAVIOR + NAVI + RADAR] for stat in STATS]
         selected_columns = []
