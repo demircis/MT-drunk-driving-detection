@@ -19,7 +19,6 @@ SELECTED_SIGNALS = {
         'gas_jerk',
         'gas_vel',
         'steer',
-        'SteerError',
         'SteerSpeed',
         'SteerSpeed_acc',
         'SteerSpeed_jerk'
