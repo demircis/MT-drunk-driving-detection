@@ -89,6 +89,7 @@ def calc_can_data_event_features():
         for sublist in columns_per_signal:
             selected_columns += sublist
         can_data_event_features = can_data.groupby(GROUPING_COLUMNS).apply(lambda x: calculate_event_stats(x, event))
+        can_data_event_features.index.rename('datetime', level=3, inplace=True)
         if event == 'road_sign':
             can_data_event_features = can_data_event_features[['duration', 'sign_type'] + selected_columns]
         else:

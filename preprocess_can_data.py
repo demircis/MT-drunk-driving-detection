@@ -261,7 +261,7 @@ def do_preprocessing(full_study, data_freq=30):
             can_data_filtered.insert(0, 'subject_id', subject_id)
             can_data_filtered.insert(1, 'subject_state', state)
             can_data_filtered.insert(2, 'subject_scenario', scenario)
-            data.append(can_data_filtered)   
+            data.append(can_data_filtered)
 
     data = pd.concat(data)
     data.to_parquet("out/can_data.parquet")

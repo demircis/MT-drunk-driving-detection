@@ -29,29 +29,44 @@ def calculate_event_stats(subject_data, event_type):
             .filter(lambda x: (x['gas'] == 0).all())
             .groupby((subject_data['brake'] == 0).cumsum(), as_index=False))
         brake_events_stats = positive_brake_events.apply(calculate_pedal_event_stats)
-        return brake_events_stats.droplevel(0)
+        if brake_events_stats.empty:
+            return brake_events_stats
+        else:
+            return brake_events_stats.droplevel(0)
     elif event_type == 'gas_to_brake':
         zero_gas_events = subject_data[subject_data['gas'] == 0].groupby((subject_data['gas'] > 0).cumsum(), as_index=False)
         gas_to_brake_event = zero_gas_events.apply(lambda x: pedal_transition(x, 'brake'))
-        return gas_to_brake_event.droplevel(0)
+        if gas_to_brake_event.empty:
+            return gas_to_brake_event
+        else:
+            return gas_to_brake_event.droplevel(0)
     elif event_type == 'gas':
         positive_gas_events = (subject_data[subject_data['gas'] > 0]
             .groupby((subject_data['gas'] == 0).cumsum(), as_index=False)
             .filter(lambda x: (x['brake'] == 0).all())
             .groupby((subject_data['gas'] == 0).cumsum(), as_index=False))
         gas_events_stats = positive_gas_events.apply(calculate_pedal_event_stats)
-        return gas_events_stats.droplevel(0)
+        if gas_events_stats.empty:
+            return gas_events_stats
+        else:
+            return gas_events_stats.droplevel(0)
     elif event_type == 'brake_to_gas':
         zero_brake_events = subject_data[subject_data['brake'] == 0].groupby((subject_data['brake'] > 0).cumsum(), as_index=False)
         brake_to_gas_event = zero_brake_events.apply(lambda x: pedal_transition(x, 'gas'))
-        return brake_to_gas_event.droplevel(0)
+        if brake_to_gas_event.empty:
+            return brake_to_gas_event
+        else:
+            return brake_to_gas_event.droplevel(0)
     elif event_type == 'overtaking':
         lane_zero_to_one = subject_data[subject_data['lane_number'] == 1].groupby((subject_data['lane_number'] == 0).cumsum(), as_index=False)
         overtaking_events_stats = get_overtaking_events(subject_data, lane_zero_to_one)
         if scenario == 'highway':
             lane_one_to_two = subject_data[subject_data['lane_number'] == 2].groupby((subject_data['lane_number'] == 1).cumsum(), as_index=False)
             overtaking_events_stats = pd.concat((overtaking_events_stats, get_overtaking_events(subject_data, lane_one_to_two)))
-        return overtaking_events_stats.droplevel(0)
+        if overtaking_events_stats.empty:
+            return overtaking_events_stats
+        else:
+            return overtaking_events_stats.droplevel(0)
     elif event_type == 'road_sign':
         signs_for_scenario = road_signs_df[road_signs_df['scenario'] == scenario]
         speed_limit_30 = signs_for_scenario[signs_for_scenario['signType'] == SPEED_LIMIT_30]
@@ -106,6 +121,8 @@ def calculate_event_stats(subject_data, event_type):
 
 
 def calculate_pedal_event_stats(event):
+    if event.empty:
+        return pd.DataFrame(dtype=np.float64)
     first = event.index.to_numpy()[0]
     last = event.index.to_numpy()[-1]
     duration = int((event['timestamp'].at[last] - event['timestamp'].at[first]).total_seconds() * 1000)
@@ -123,8 +140,7 @@ def pedal_transition(event, pedal):
         if duration != 0:
             result = get_features(event.loc[first:ind], duration, num_cores=CORES, step_size=str(duration+1) + 'ms')
             return result.dropna(axis=0, how='all')
-    result = get_features(event, duration, num_cores=CORES)
-    return result.dropna(axis=0, how='all')
+    return pd.DataFrame(dtype=np.float64)
 
 
 def get_overtaking_events(data, groupby):
@@ -206,16 +222,6 @@ def get_road_sign_events(sign_info, data, sign_type):
     result.dropna(axis=0, how='all', inplace=True)
     result.insert(1, 'sign_type', sign_type)
     return result
-
-
-def adjust_index(df, level, subject_id, subject_state, subject_scenario):
-    if not df.empty:
-        df.reset_index(level=level, inplace=True)
-        df.insert(0, 'subject_id', subject_id)
-        df.insert(1, 'subject_state', subject_state)
-        df.insert(2, 'subject_scenario', subject_scenario)
-        df.set_index(['subject_id', 'subject_state', 'subject_scenario', 'datetime'], drop=True, inplace=True)
-    return df
 
 
 def validate_start_end_indices(data, start_idx, end_idx):
