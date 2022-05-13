@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
+import warnings
 from event_functions import calculate_event_stats
-
 from get_features import get_features
 
 GROUPING_COLUMNS = ['subject_id', 'subject_state', 'subject_scenario']
@@ -105,7 +105,7 @@ def calc_event_features_in_window(window_sizes):
             selected_columns = []
             for sublist in columns_per_signal:
                 selected_columns += sublist
-            can_data_event_features = pd.read_parquet('out/can_data_{}_events_features_new.parquet'.format(event), columns=['duration'] + selected_columns)
+            can_data_event_features = pd.read_parquet('out/can_data_{}_events_features.parquet'.format(event), columns=['duration'] + selected_columns)
             events_per_window = can_data_event_features.groupby(GROUPING_COLUMNS).apply(lambda data: get_event_info_for_windows(data, window_size, window_timestamps, event))
             events_per_window.to_parquet('out/can_data_{}_events_per_window_windowsize_{}s.parquet'.format(event, window_size))
     print('done')
@@ -125,11 +125,29 @@ def get_event_info_for_windows(data, window_size, window_timestamps, event):
     start_data = pd.concat([start_timestamp_row, data, end_timestamp_row], axis=0)
     resampled = start_data.resample('1S', level='datetime', origin='start').mean()
     rolling_window = resampled.rolling(
-            str(window_size) + 'S', on=resampled.index.get_level_values('datetime'), closed='left'
+            str(window_size) + 'S', on=resampled.index.get_level_values('datetime'), closed='both'
         )
-    rolling_window_mean = rolling_window.mean().add_prefix(event + '_event').add_suffix('mean')
-    rolling_window_std = rolling_window.std(ddof=0).add_prefix(event + '_event').add_suffix('std')
-    rolling_window_count = rolling_window.count()['duration'].rename(event + '_event_count')
-    rolling_window_ratio = (rolling_window.sum() / window_size)['duration'].rename(event + '_event_ratio')
-    result = pd.concat([rolling_window_count, rolling_window_ratio, rolling_window_mean, rolling_window_std], axis=1)
-    return result
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        rolling_window_count = rolling_window.count()
+        rolling_window_ratio = (rolling_window.sum() / window_size)['duration'].rename(event + '_event_ratio')
+        rolling_window_mean = rolling_window.mean().add_prefix(event + '_event_').add_suffix('_mean')
+        rolling_window_std = rolling_window.std(ddof=0).add_prefix(event + '_event_').add_suffix('_std')
+        rolling_window_q5 = rolling_window.quantile(0.05).add_prefix(event + '_event_').add_suffix('_q5')
+        rolling_window_q95 = rolling_window.quantile(0.95).add_prefix(event + '_event_').add_suffix('_q95')
+        rolling_window_skew = rolling_window.skew().add_prefix(event + '_event_').add_suffix('_skewness')
+        rolling_window_kurt = rolling_window.kurt().add_prefix(event + '_event_').add_suffix('_kurtosis')
+        result = pd.concat(
+            [
+                rolling_window_count['duration'].rename(event + '_event_count'), 
+                rolling_window_ratio.fillna(0), 
+                rolling_window_mean.where(rolling_window_count.any(axis=1), 0), 
+                rolling_window_std.where(rolling_window_count.any(axis=1), 0), 
+                rolling_window_q5.where(rolling_window_count.any(axis=1), 0), 
+                rolling_window_q95.where(rolling_window_count.any(axis=1), 0), 
+                rolling_window_skew.where(rolling_window_count.any(axis=1), 0), 
+                rolling_window_kurt.where(rolling_window_count.any(axis=1), 0)
+            ], 
+            axis=1
+        )
+        return result
