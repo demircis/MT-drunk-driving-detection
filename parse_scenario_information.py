@@ -1,6 +1,6 @@
 import pandas as pd
 import re
-
+import math
 
 def parse_route_details(route_details, scenario_file_lines, idx, scenario):
     route_pattern = re.compile('Part\[MainTarget]\.(PathNr|Route)[\s]*:= ([0-9]+);')
@@ -28,11 +28,13 @@ def parse_segment_details(segment_details, road_file_lines, idx, scenario):
     dlanes_pattern = re.compile('NrDLanes[\s]*([0-9]+)')
     lane_pattern = re.compile('^Lane[\s]*([0-9]+)')
     position_pattern = re.compile('(StartPos|EndPos)[\s]+([\-0-9]+.[0-9]+)[\s]+([\-0-9]+.[0-9]+)')
+    angle_pattern = re.compile('(StartAng|EndAng)[\s]+([\-0-9]+.[0-9]+)')
     segment_id = None
     segment_start_pos_x = None
     segment_start_pos_y = None
     segment_end_pos_x = None
     segment_end_pos_y = None
+    angle = 0
     segment_match = segment_pattern.search(road_file_lines[idx])
     if segment_match:
         segment_id = int(segment_match.group(1))
@@ -44,6 +46,13 @@ def parse_segment_details(segment_details, road_file_lines, idx, scenario):
         if s == 'EndPos':
             segment_end_pos_x = float(x)
             segment_end_pos_y = float(y)
+    angle_match = angle_pattern.findall(road_file_lines[idx+11])
+    for s, matched_angle in angle_match:
+        if s == 'StartAng':
+            angle = math.degrees(float(matched_angle))
+        elif s == 'EndAng':
+            angle -= math.degrees(float(matched_angle))
+    angle = abs(angle)
     offset = None
     for i, line in enumerate(road_file_lines[idx:idx+20]):
         if 'NrDLanes' in line:
@@ -61,7 +70,7 @@ def parse_segment_details(segment_details, road_file_lines, idx, scenario):
                 lane_id = int(lane_nr_match.group(1))
                 segment_details.append({'segment_id': segment_id, 'scenario': scenario, 'lane_id': lane_id, 'StartPos_x': segment_start_pos_x,
                                             'StartPos_y': segment_start_pos_y, 'EndPos_x': segment_end_pos_x, 
-                                            'EndPos_y': segment_end_pos_y})
+                                            'EndPos_y': segment_end_pos_y, 'angle': angle})
     return segment_details
 
 
