@@ -198,9 +198,17 @@ def do_per_event_classification(classifier_type, classifier_mode, per_scenario):
 
 def do_events_sliding_window_classification(window_sizes, classifier_type, classifier_mode, per_scenario):
     for window_size in window_sizes:
-        can_data_events_per_window = pd.read_parquet(
-            'out/can_data_events_per_window_windowsize_{}s.parquet'.format(window_size), columns=['duration'] + select_columns()
-            )
+        can_data_events_per_window = []
+        for event in EVENTS:
+            cols = [event + '_event_' + col + '-' + stat for stat in ['mean', 'std', 'q5', 'q95', 'skewness', 'kurtosis'] for col in ['duration'] + select_columns()]
+            can_data_events_per_window.append(pd.read_parquet(
+                'out/can_data_{}_events_per_window_windowsize_{}s.parquet'.format(event, window_size), columns=[event + '_event_ratio', event + '_event_count'] + cols
+                ))
+        can_data_events_per_window = pd.concat(can_data_events_per_window, axis=1)
+
+        for event in EVENTS:
+            cols = [event + '_event_' + col + '-' + stat for stat in ['mean', 'std', 'q5', 'q95', 'skewness', 'kurtosis'] for col in ['duration'] + select_columns()]
+            can_data_events_per_window.loc[can_data_events_per_window[cols].isna().all(axis=1), cols] = 0
 
         if classifier_type == 'log_regression':
                 can_data_events_per_window.dropna(axis=1, inplace=True)
@@ -394,9 +402,10 @@ def do_overlap_percentage_classification(overlap_percentages, classifier_type, c
 
 
 def select_columns(signals=None):
+    all_signals = [signal for signal_type in list(SELECTED_SIGNALS.values()) for signal in signal_type]
     stat_columns_list = [
         [sig + '_' + s for s in (['mean', 'std', 'sum'] if sig in SUM_COLUMNS else STATS)]
-        for sig in (SELECTED_SIGNALS[signals] if signals is not None else list(SELECTED_SIGNALS.values()))]
+        for sig in (SELECTED_SIGNALS[signals] if signals is not None else all_signals)]
     stat_columns = []
     for item in stat_columns_list:
         stat_columns += item

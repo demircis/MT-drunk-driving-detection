@@ -118,8 +118,8 @@ class Classifier:
             raise ValueError('Received unknown classifier mode string!')
         
         if scenario == 'highway':
-            input_data.drop(columns=list(input_data.filter(regex = 'TtcOpp')), inplace=True)
-            input_data.drop(columns=list(input_data.filter(regex = 'brake')), inplace=True)
+            input_data.drop(columns=list(input_data.filter(like = 'TtcOpp')), inplace=True)
+            input_data.drop(columns=list(input_data.filter(like = 'brake')), inplace=True)
         X = input_data.drop(columns='label').to_numpy(dtype=np.float64)
         
         y = input_data['label'].to_numpy()
