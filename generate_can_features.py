@@ -131,12 +131,12 @@ def get_event_info_for_windows(data, window_size, window_timestamps, event):
         warnings.simplefilter("ignore")
         rolling_window_count = rolling_window.count()
         rolling_window_ratio = (rolling_window.sum() / window_size)['duration'].rename(event + '_event_ratio')
-        rolling_window_mean = rolling_window.mean().add_prefix(event + '_event_').add_suffix('_mean')
-        rolling_window_std = rolling_window.std(ddof=0).add_prefix(event + '_event_').add_suffix('_std')
-        rolling_window_q5 = rolling_window.quantile(0.05).add_prefix(event + '_event_').add_suffix('_q5')
-        rolling_window_q95 = rolling_window.quantile(0.95).add_prefix(event + '_event_').add_suffix('_q95')
-        rolling_window_skew = rolling_window.skew().add_prefix(event + '_event_').add_suffix('_skewness')
-        rolling_window_kurt = rolling_window.kurt().add_prefix(event + '_event_').add_suffix('_kurtosis')
+        rolling_window_mean = rolling_window.mean().add_prefix(event + '_event_').add_suffix('-mean')
+        rolling_window_std = rolling_window.std(ddof=0).add_prefix(event + '_event_').add_suffix('-std')
+        rolling_window_q5 = rolling_window.quantile(0.05).add_prefix(event + '_event_').add_suffix('-q5')
+        rolling_window_q95 = rolling_window.quantile(0.95).add_prefix(event + '_event_').add_suffix('-q95')
+        rolling_window_skew = rolling_window.skew().add_prefix(event + '_event_').add_suffix('-skewness')
+        rolling_window_kurt = rolling_window.kurt().add_prefix(event + '_event_').add_suffix('-kurtosis')
         result = pd.concat(
             [
                 rolling_window_count['duration'].rename(event + '_event_count'), 
