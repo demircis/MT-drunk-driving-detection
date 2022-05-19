@@ -93,7 +93,7 @@ class Classifier:
         best_X = None
         selected_features = None
         if self.max_features is not None:
-            best_X, selected_features = self.sequential_feature_selection(data, X, y, groups, weights, len(subject_ids)-1)
+            best_X, selected_features = self.sequential_feature_selection(X, y, groups, weights, len(subject_ids)-1)
         else:
             best_X = X
 
@@ -120,26 +120,26 @@ class Classifier:
         if scenario == 'highway':
             input_data.drop(columns=list(input_data.filter(like = 'TtcOpp')), inplace=True)
             input_data.drop(columns=list(input_data.filter(like = 'brake')), inplace=True)
-        X = input_data.drop(columns='label').to_numpy(dtype=np.float64)
+        X = input_data.drop(columns='label')
         
-        y = input_data['label'].to_numpy()
-        class_weights = compute_class_weight('balanced', classes=np.unique(y), y=y)
+        y = input_data['label']
+        class_weights = compute_class_weight('balanced', classes=np.unique(y), y=y.to_numpy())
         weights = np.zeros(y.shape)
         for i, weight in enumerate(class_weights):
             weights[y == i] = weight
 
         groups = list(input_data.index.get_level_values('subject_id'))
 
-        X = StandardScaler().fit_transform(X, y)
+        X = pd.DataFrame(StandardScaler().fit_transform(X.to_numpy(), y.to_numpy()), columns=list(X.columns))
 
         return X, y, weights, groups
 
 
-    def sequential_feature_selection(self, data, X, y, groups=None, weights=None, n_jobs=1):
+    def sequential_feature_selection(self, X, y, groups=None, weights=None, n_jobs=1):
         sfs = SequentialFeatureSelector(self.estimator, k_features=(1, self.max_features), scoring='balanced_accuracy', cv=self.LOGO, n_jobs=n_jobs, verbose=2)
         best_X = sfs.fit_transform(X, y, groups=groups, sample_weight=weights)
-        print('\nbest score (with {} features): {}'.format(len(list(sfs.k_feature_idx_)), sfs.k_score_))
-        selected_features = pd.Series(data.columns[list(sfs.k_feature_idx_)])
+        print('\nbest score (with {} features): {}'.format(len(list(sfs.k_feature_names_)), sfs.k_score_))
+        selected_features = pd.Series(list(sfs.k_feature_names_))
         print(selected_features.to_numpy())
         return best_X, selected_features
 
