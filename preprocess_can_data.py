@@ -229,6 +229,9 @@ def do_preprocessing(full_study, data_freq=30):
                 can_data_filtered.loc[:, 'path_id'] = path_ids
                 can_data_filtered.loc[:, 'segment_id'] = segment_ids
 
+            angle_for_segment = lanes_for_scenario[['segment_id', 'angle']].drop_duplicates().set_index('segment_id')
+            can_data_filtered.loc[:, 'turn_angle'] = [angle_for_segment.loc[segment_id, 'angle'] if segment_id in angle_for_segment.index else -1 for segment_id in can_data_filtered['segment_id']]
+            
             lane_info = [calculate_lane_pos(lanes_for_scenario, segment_id, latpos, dtoint)
                         for segment_id, latpos, dtoint in zip(can_data_filtered['segment_id'], can_data_filtered['latpos'], can_data_filtered['dtoint'])]
             lane_info = pd.DataFrame(lane_info)
