@@ -15,7 +15,7 @@ RADAR = ['lane_position', 'lane_distance_left_edge', 'lane_distance_right_edge',
          'is_crossing_lane', 'is_crossing_lane_left', 'is_crossing_lane_right',
          'lane_crossing_left', 'lane_crossing_right', 'lane_switching', 'opp_lane_switching',
          'Ttc', 'TtcOpp', 'Thw', 'Dhw']
-NAVI = ['dtoint', 'SpeedDif', 'speed_limit_exceeded', 'turning_angle']
+NAVI = ['dtoint', 'SpeedDif', 'speed_limit_exceeded', 'turn_angle']
 
 SIGNALS = {'driver_behavior': DRIVER_BEHAVIOR, 'vehicle_behavior': VEHICLE_BEHAVIOR, 'radar': RADAR, 'navi': NAVI}
 
