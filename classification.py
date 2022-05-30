@@ -340,7 +340,7 @@ def do_combined_classification(window_sizes, classifier_type, classifier_mode, p
 
 
 def do_signal_combo_classification(classifier_type, classifier_mode):
-    window_size = 60
+    window_size = 120
     for combo in SIGNAL_COMBOS:
         signal_string = ''
         can_data_features = []
@@ -380,6 +380,7 @@ def do_window_size_classification(window_sizes, classifier_type, classifier_mode
         can_data_features = pd.concat(can_data_features, axis=1)
         
         if classifier_type == 'log_regression':
+            can_data_features.dropna(axis=0, how='all', inplace=True)
             can_data_features.dropna(axis=1, inplace=True)
 
         clf = Classifier(classifier_type, classifier_mode, max_features=None)
@@ -394,7 +395,7 @@ def do_window_size_classification(window_sizes, classifier_type, classifier_mode
 
 
 def do_overlap_percentage_classification(overlap_percentages, classifier_type, classifier_mode):
-    window_size = 60
+    window_size = 120
     for overlap_percentage in overlap_percentages:
         signal_string = ''
         can_data_features = []
@@ -406,6 +407,7 @@ def do_overlap_percentage_classification(overlap_percentages, classifier_type, c
         can_data_features = pd.concat(can_data_features, axis=1)
         
         if classifier_type == 'log_regression':
+            can_data_features.dropna(axis=0, how='all', inplace=True)
             can_data_features.dropna(axis=1, inplace=True)
 
         step = 1
@@ -414,7 +416,7 @@ def do_overlap_percentage_classification(overlap_percentages, classifier_type, c
         can_data_features_step = can_data_features[(can_data_features.groupby(['subject_id', 'subject_state', 'subject_scenario']).cumcount() % step) == 0]
 
         clf = Classifier(classifier_type, classifier_mode, max_features=None)
-        print('window size: {}s'.format(window_size))
+        print('overlap percentage: {}s'.format(overlap_percentage))
                 
         results, _ = clf.do_classification(can_data_features_step)
 
