@@ -71,16 +71,16 @@ class Classifier:
             if self.classifier_type == 'log_regression':
                 self.estimator = LogisticRegression(
                 penalty='l1', solver='saga', max_iter=1000, tol=1e-2, random_state=self.RANDOM_STATE)
-            elif self.classifier_type == 'random_forest':
-                self.estimator = LGBMClassifier(objective='binary', n_estimators=100, n_jobs=1, random_state=self.RANDOM_STATE)
+            elif self.classifier_type == 'gradient_boosting':
+                self.estimator = LGBMClassifier(objective='binary', n_estimators=100, max_depth=5, n_jobs=1, random_state=self.RANDOM_STATE)
             else:
                 raise ValueError('Received unknown classifier string!')
         elif self.classifier_mode == 'multiclass':
             if self.classifier_type == 'log_regression':
                 self.estimator = LogisticRegression(
                 penalty='l1', solver='saga', max_iter=1000, tol=1e-2, random_state=self.RANDOM_STATE)
-            elif self.classifier_type == 'random_forest':
-                self.estimator = LGBMClassifier(objective='multiclass', n_estimators=100, n_jobs=1, random_state=self.RANDOM_STATE)
+            elif self.classifier_type == 'gradient_boosting':
+                self.estimator = LGBMClassifier(objective='multiclass', n_estimators=100, max_depth=5, n_jobs=1, random_state=self.RANDOM_STATE)
             else:
                 raise ValueError('Received unknown classifier string!')
     

@@ -1,5 +1,5 @@
 from yaml import load, Loader
-from classification import do_combined_classification, do_combined_events_classification, do_events_sliding_window_classification, do_overlap_percentage_classification, do_signal_combo_classification, do_sliding_window_classification, do_per_event_classification, do_window_size_classification
+from classification import do_combined_classification, do_combined_events_classification, do_events_sliding_window_classification, do_step_size_classification, do_signal_combo_classification, do_sliding_window_classification, do_per_event_classification, do_window_size_classification
 from generate_can_features import calc_can_data_event_features, calc_can_data_features, calc_event_features_in_window
 from parse_scenario_information import parse_scenario_information
 from preprocess_can_data import do_preprocessing
@@ -35,5 +35,5 @@ if __name__ == '__main__':
             do_window_size_classification(config.window_sizes, config.classifier_type, config.clf_mode)
         elif config.dataset == 'signal_combos':
             do_signal_combo_classification(config.classifier_type, config.clf_mode)
-        elif config.dataset == 'overlap_percentages':
-            do_overlap_percentage_classification(config.overlap_percentages, config.classifier_type, config.clf_mode)
+        elif config.dataset == 'step_sizes':
+            do_step_size_classification(config.step_sizes, config.classifier_type, config.clf_mode)

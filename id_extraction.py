@@ -170,7 +170,7 @@ def get_path_and_segment_ids(video, dimensions, data_timestamps, video_timestamp
             else:
                 new_indices.append(left+(right-left)//2)
 
-        new_indices = np.array(new_indices)
+        new_indices = np.array(new_indices, dtype=np.int64)
         sampling_indices = np.concatenate((sampling_indices, new_indices))
         sampling_indices = np.sort(sampling_indices)
         path_ids, segment_ids = get_ids_for_indices(path_ids, segment_ids, cropped_video, dimensions, can_data_timestamps_ms, new_indices)

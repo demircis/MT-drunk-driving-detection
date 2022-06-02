@@ -394,9 +394,9 @@ def do_window_size_classification(window_sizes, classifier_type, classifier_mode
                 )
 
 
-def do_overlap_percentage_classification(overlap_percentages, classifier_type, classifier_mode):
+def do_step_size_classification(step_sizes, classifier_type, classifier_mode):
     window_size = 120
-    for overlap_percentage in overlap_percentages:
+    for step_size in step_sizes:
         signal_string = ''
         can_data_features = []
         for signal in ['driver_behavior', 'vehicle_behavior', 'navi', 'radar']:
@@ -410,19 +410,16 @@ def do_overlap_percentage_classification(overlap_percentages, classifier_type, c
             can_data_features.dropna(axis=0, how='all', inplace=True)
             can_data_features.dropna(axis=1, inplace=True)
 
-        step = 1
-        if overlap_percentage is not None:
-            step = window_size - int(overlap_percentage * window_size)
-        can_data_features_step = can_data_features[(can_data_features.groupby(['subject_id', 'subject_state', 'subject_scenario']).cumcount() % step) == 0]
+        can_data_features_step = can_data_features[(can_data_features.groupby(['subject_id', 'subject_state', 'subject_scenario']).cumcount() % step_size) == 0]
 
         clf = Classifier(classifier_type, classifier_mode, max_features=None)
-        print('overlap percentage: {}s'.format(overlap_percentage))
+        print('step size: {}s'.format(step_size))
                 
         results, _ = clf.do_classification(can_data_features_step)
 
         results.to_csv(
                 'out/results/{}_{}_pred_results_step_size_{}_windowsize_{}.csv'.format(
-                    classifier_type, classifier_mode, step, window_size
+                    classifier_type, classifier_mode, step_size, window_size
                     ), index=True, header=True
                 )
 
