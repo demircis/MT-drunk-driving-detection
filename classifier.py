@@ -13,51 +13,7 @@ from sklearn.model_selection import LeaveOneGroupOut
 class Classifier:
     RANDOM_STATE = 42
 
-    SCORING = ('balanced_accuracy', 'roc_auc', 'f1_micro', 'average_precision', 'recall', 'precision')
-
-    SIGNAL_COMBOS = (('driver_behavior', 'vehicle_behavior'), ('driver_behavior', 'vehicle_behavior', 'navi'),
-                    ('driver_behavior', 'vehicle_behavior', 'radar'), ('driver_behavior', 'vehicle_behavior', 'navi', 'radar'))
-
-    EVENTS = ('brake', 'brake_to_gas', 'gas', 'gas_to_brake', 'overtaking', 'road_sign', 'turning')
-
-    SELECTED_SIGNALS = (
-        'brake',
-        'brake_acc',
-        'brake_jerk',
-        'brake_vel',
-        'gas',
-        'gas_acc',
-        'gas_jerk',
-        'gas_vel',
-        'steer',
-        'SteerSpeed',
-        'SteerSpeed_acc',
-        'SteerSpeed_jerk',
-        'speed_limit_exceeded',
-        'SpeedDif',
-        'Dhw',
-        'is_crossing_lane_left',
-        'is_crossing_lane_right',
-        'lane_crossing',
-        'lane_distance_left_edge',
-        'lane_distance_right_edge',
-        'Ttc',
-        'TtcOpp',
-        'acc',
-        'acc_jerk',
-        'velocity',
-        'latvel_acc',
-        'latvel_jerk',
-        'YawRate_acc',
-        'YawRate_jerk',
-        'YawRate'
-    )
-
-    STATS = ('mean', 'std', 'min', 'max', 'q5', 'q95', 'iqrange', 'iqrange_5_95', 'skewness', 'kurtosis', 'peaks', 'rms')
-
-    SUM_COLUMNS = ('lane_crossing', 'lane_crossing_left', 'lane_crossing_right', 'is_crossing_lane', 'is_crossing_lane_left', 'is_crossing_lane_right', 'speed_limit_exceeded')
-
-    SCENARIOS = ('highway', 'rural', 'town')
+    SCORING = ['balanced_accuracy', 'roc_auc', 'f1_micro', 'average_precision', 'recall', 'precision']
 
     LOGO = LeaveOneGroupOut()
 
@@ -72,7 +28,7 @@ class Classifier:
                 self.estimator = LogisticRegression(
                 penalty='l1', solver='saga', max_iter=1000, tol=1e-2, random_state=self.RANDOM_STATE)
             elif self.classifier_type == 'gradient_boosting':
-                self.estimator = LGBMClassifier(objective='binary', n_estimators=100, max_depth=5, n_jobs=1, random_state=self.RANDOM_STATE)
+                self.estimator = LGBMClassifier(objective='binary', n_estimators=150, max_depth=3, n_jobs=1, random_state=self.RANDOM_STATE)
             else:
                 raise ValueError('Received unknown classifier string!')
         elif self.classifier_mode == 'multiclass':
@@ -80,7 +36,7 @@ class Classifier:
                 self.estimator = LogisticRegression(
                 penalty='l1', solver='saga', max_iter=1000, tol=1e-2, random_state=self.RANDOM_STATE)
             elif self.classifier_type == 'gradient_boosting':
-                self.estimator = LGBMClassifier(objective='multiclass', n_estimators=100, max_depth=5, n_jobs=1, random_state=self.RANDOM_STATE)
+                self.estimator = LGBMClassifier(objective='multiclass', n_estimators=150, max_depth=3, n_jobs=1, random_state=self.RANDOM_STATE)
             else:
                 raise ValueError('Received unknown classifier string!')
     
@@ -119,7 +75,7 @@ class Classifier:
         
         if scenario == 'highway':
             input_data.drop(columns=list(input_data.filter(like = 'TtcOpp')), inplace=True, errors='ignore')
-            input_data.drop(columns=list(input_data.filter(like = 'brake')), inplace=True, errors='ignore')
+            input_data.drop(columns=list(input_data.filter(regex = 'brake(?!(_event|_to_gas_event))')), inplace=True, errors='ignore')
         X = input_data.drop(columns='label')
         
         y = input_data['label']

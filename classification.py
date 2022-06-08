@@ -52,8 +52,8 @@ SELECTED_SIGNALS = {
 
 SELECTED_SIGNALS_ESW = {
     'driver_behavior': [
-        'brake_vel'
-        'gas_vel',
+        'brake',
+        'gas',
         'SteerSpeed'
     ],
     'vehicle_behavior': [
@@ -65,15 +65,12 @@ SELECTED_SIGNALS_ESW = {
         'turn_angle'
     ],
     'radar': [
-        'Dhw',
         'is_crossing_lane',
         'lane_position'
     ]
 }
 
 STATS = ['mean', 'std', 'min', 'max', 'q5', 'q95', 'iqrange', 'iqrange_5_95', 'skewness', 'kurtosis', 'peaks', 'rms']
-
-STATS_ESW = ['mean', 'std', 'q5', 'q95', 'skewness', 'kurtosis']
 
 SUM_COLUMNS = ['lane_crossing', 'lane_crossing_left', 'lane_crossing_right', 'is_crossing_lane', 'is_crossing_lane_left', 'is_crossing_lane_right', 'speed_limit_exceeded']
 
@@ -224,14 +221,14 @@ def do_events_sliding_window_classification(window_sizes, classifier_type, class
     for window_size in window_sizes:
         can_data_events_per_window = []
         for event in EVENTS:
-            cols = [event + '_event_' + col + '-' + stat for stat in ['mean', 'std', 'q5', 'q95', 'skewness', 'kurtosis'] for col in ['duration'] + select_columns(esw=True)]
+            cols = [event + '_event_' + col + '-' + stat for stat in ['mean'] for col in ['duration'] + select_columns(esw=True)]
             can_data_events_per_window.append(pd.read_parquet(
                 'out/can_data_{}_events_per_window_windowsize_{}s.parquet'.format(event, window_size), columns=[event + '_event_ratio', event + '_event_count'] + cols
                 ))
         can_data_events_per_window = pd.concat(can_data_events_per_window, axis=1)
 
         for event in EVENTS:
-            cols = [event + '_event_' + col + '-' + stat for stat in ['mean', 'std', 'q5', 'q95', 'skewness', 'kurtosis'] for col in ['duration'] + select_columns(esw=True)]
+            cols = [event + '_event_' + col + '-' + stat for stat in ['mean'] for col in ['duration'] + select_columns(esw=True)]
             can_data_events_per_window.loc[can_data_events_per_window[cols].isna().all(axis=1), cols] = 0
 
         if classifier_type == 'log_regression':
@@ -426,15 +423,12 @@ def do_step_size_classification(step_sizes, classifier_type, classifier_mode):
 
 def select_columns(signals=None, esw=False):
     all_signals = None
-    stats = None
     if esw:
         all_signals = [signal for signal_type in list(SELECTED_SIGNALS_ESW.values()) for signal in signal_type]
-        stats = STATS_ESW
     else:
         all_signals = [signal for signal_type in list(SELECTED_SIGNALS.values()) for signal in signal_type]
-        stats = STATS
     stat_columns_list = [
-        [sig + '_' + s for s in (['mean'] if sig in SUM_COLUMNS else stats)]
+        [sig + '_' + s for s in (['mean'] if sig in SUM_COLUMNS else STATS)]
         for sig in (SELECTED_SIGNALS[signals] if signals is not None else all_signals)]
     stat_columns = []
     for item in stat_columns_list:

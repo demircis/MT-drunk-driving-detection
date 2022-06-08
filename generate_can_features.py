@@ -39,6 +39,7 @@ SELECTED_SIGNALS = [
     'SteerSpeed_jerk',
     'speed_limit_exceeded',
     'SpeedDif',
+    'turn_angle',
     'Dhw',
     'is_crossing_lane_left',
     'is_crossing_lane_right',
