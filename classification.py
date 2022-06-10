@@ -91,7 +91,8 @@ def do_sliding_window_classification(window_sizes, classifier_type, classifier_m
             if classifier_type == 'log_regression':
                 can_data_features.dropna(axis=1, inplace=True)
 
-            clf = Classifier(classifier_type, classifier_mode, max_features=50)
+            max_features = 40
+            clf = Classifier(classifier_type, classifier_mode, max_features=max_features)
             if per_scenario:
                 for scenario in SCENARIOS:
                     print('signals: {}, window size: {}s, scenario: {}'.format(
@@ -101,32 +102,47 @@ def do_sliding_window_classification(window_sizes, classifier_type, classifier_m
                     can_data_features_scenario = can_data_features.loc[:, :, scenario, :]
 
                     results, selected_features = clf.do_classification(can_data_features_scenario, scenario=scenario)
-                    selected_features.to_csv(
-                            'out/results/{}_{}_selected_features_windowsize_{}{}_{}.csv'.format(
-                                classifier_type, classifier_mode, window_size, signal_string, scenario
-                                ), index=True, header=['selected_features']
-                            )
+                    if max_features is not None:
+                        selected_features.to_csv(
+                                'out/results/{}_{}_selected_features_windowsize_{}{}_{}.csv'.format(
+                                    classifier_type, classifier_mode, window_size, signal_string, scenario
+                                    ), index=True, header=['selected_features']
+                                )
 
-                    results.to_csv(
-                            'out/results/{}_{}_pred_results_windowsize_{}{}_{}.csv'.format(
-                                classifier_type, classifier_mode, window_size, signal_string, scenario
-                                ), index=True, header=True
-                            )
+                        results.to_csv(
+                                'out/results/{}_{}_pred_results_windowsize_{}{}_{}.csv'.format(
+                                    classifier_type, classifier_mode, window_size, signal_string, scenario
+                                    ), index=True, header=True
+                                )
+                    else:
+                        results.to_csv(
+                                'out/results/{}_{}_pred_results_windowsize_{}{}_{}_no_sfs.csv'.format(
+                                    classifier_type, classifier_mode, window_size, signal_string, scenario
+                                    ), index=True, header=True
+                                )
+
             else:
                 print('signals: {}, window size: {}s'.format(signal_string, window_size))
                     
                 results, selected_features = clf.do_classification(can_data_features)
-                selected_features.to_csv(
-                        'out/results/{}_{}_selected_features_windowsize_{}{}.csv'.format(
-                            classifier_type, classifier_mode, window_size, signal_string
-                            ), index=True, header=['selected_features']
-                        )
+                if max_features is not None:
+                    selected_features.to_csv(
+                            'out/results/{}_{}_selected_features_windowsize_{}{}.csv'.format(
+                                classifier_type, classifier_mode, window_size, signal_string
+                                ), index=True, header=['selected_features']
+                            )
 
-                results.to_csv(
-                        'out/results/{}_{}_pred_results_windowsize_{}{}.csv'.format(
-                            classifier_type, classifier_mode, window_size, signal_string
-                            ), index=True, header=True
-                        )
+                    results.to_csv(
+                            'out/results/{}_{}_pred_results_windowsize_{}{}.csv'.format(
+                                classifier_type, classifier_mode, window_size, signal_string
+                                ), index=True, header=True
+                            )
+                else:
+                    results.to_csv(
+                            'out/results/{}_{}_pred_results_windowsize_{}{}_no_sfs.csv'.format(
+                                classifier_type, classifier_mode, window_size, signal_string
+                                ), index=True, header=True
+                            )
 
 
 def do_combined_events_classification(classifier_type, classifier_mode, per_scenario):
@@ -140,7 +156,8 @@ def do_combined_events_classification(classifier_type, classifier_mode, per_scen
     if classifier_type == 'log_regression':
         can_data_events.dropna(axis=1, inplace=True)
 
-    clf = Classifier(classifier_type, classifier_mode, max_features=20)
+    max_features = 20
+    clf = Classifier(classifier_type, classifier_mode, max_features=max_features)
     if per_scenario:
         for scenario in SCENARIOS:
             print('scenario: {}'.format(scenario))
@@ -148,11 +165,12 @@ def do_combined_events_classification(classifier_type, classifier_mode, per_scen
             can_data_events_scenario = can_data_events.loc[:, :, scenario, :]
             
             results, selected_features = clf.do_classification(can_data_events_scenario, scenario)
-            selected_features.to_csv(
-                    'out/results/{}_{}_selected_features_combined_events_{}.csv'.format(
-                        classifier_type, classifier_mode, scenario
-                        ), index=True, header=['selected_features']
-                    )
+            if max_features is not None:
+                selected_features.to_csv(
+                        'out/results/{}_{}_selected_features_combined_events_{}.csv'.format(
+                            classifier_type, classifier_mode, scenario
+                            ), index=True, header=['selected_features']
+                        )
 
             results.to_csv(
                     'out/results/{}_{}_pred_results_combined_events_{}.csv'.format(
@@ -160,11 +178,12 @@ def do_combined_events_classification(classifier_type, classifier_mode, per_scen
                     )
     else:
         results, selected_features = clf.do_classification(can_data_events)
-        selected_features.to_csv(
-                'out/results/{}_{}_selected_features_combined_events.csv'.format(
-                    classifier_type, classifier_mode
-                    ), index=True, header=['selected_features']
-                )
+        if max_features is not None:
+            selected_features.to_csv(
+                    'out/results/{}_{}_selected_features_combined_events.csv'.format(
+                        classifier_type, classifier_mode
+                        ), index=True, header=['selected_features']
+                    )
 
         results.to_csv(
                 'out/results/{}_{}_pred_results_combined_events.csv'.format(
@@ -179,7 +198,8 @@ def do_per_event_classification(classifier_type, classifier_mode, per_scenario):
         if classifier_type == 'log_regression':
             can_data_events.dropna(axis=1, inplace=True)
 
-        clf = Classifier(classifier_type, classifier_mode, max_features=20)
+        max_features = 20
+        clf = Classifier(classifier_type, classifier_mode, max_features=max_features)
 
         if per_scenario:
             for scenario in SCENARIOS:
@@ -191,11 +211,12 @@ def do_per_event_classification(classifier_type, classifier_mode, per_scenario):
                 can_data_events_scenario = can_data_events.loc[:, :, scenario, :]
 
                 results, selected_features = clf.do_classification(can_data_events_scenario, scenario)
-                selected_features.to_csv(
-                        'out/results/{}_{}_selected_features_{}_{}.csv'.format(
-                            classifier_type, classifier_mode, event, scenario
-                            ), index=True, header=['selected_features']
-                        )
+                if max_features is not None:
+                    selected_features.to_csv(
+                            'out/results/{}_{}_selected_features_{}_{}.csv'.format(
+                                classifier_type, classifier_mode, event, scenario
+                                ), index=True, header=['selected_features']
+                            )
 
                 results.to_csv(
                         'out/results/{}_{}_pred_results_{}_{}.csv'.format(
@@ -205,11 +226,12 @@ def do_per_event_classification(classifier_type, classifier_mode, per_scenario):
             print('event type: {}'.format(event))
 
             results, selected_features = clf.do_classification(can_data_events)
-            selected_features.to_csv(
-                    'out/results/{}_{}_selected_features_{}.csv'.format(
-                        classifier_type, classifier_mode, event
-                        ), index=True, header=['selected_features']
-                    )
+            if max_features is not None:
+                selected_features.to_csv(
+                        'out/results/{}_{}_selected_features_{}.csv'.format(
+                            classifier_type, classifier_mode, event
+                            ), index=True, header=['selected_features']
+                        )
 
             results.to_csv(
                     'out/results/{}_{}_pred_results_{}.csv'.format(
@@ -234,7 +256,8 @@ def do_events_sliding_window_classification(window_sizes, classifier_type, class
         if classifier_type == 'log_regression':
                 can_data_events_per_window.dropna(axis=1, inplace=True)
 
-        clf = Classifier(classifier_type, classifier_mode, max_features=20)
+        max_features = 20
+        clf = Classifier(classifier_type, classifier_mode, max_features=max_features)
         
         if per_scenario:
             for scenario in SCENARIOS:
@@ -244,11 +267,12 @@ def do_events_sliding_window_classification(window_sizes, classifier_type, class
 
                 results, selected_features = clf.do_classification(can_data_events_per_window_scenario, scenario)
 
-                selected_features.to_csv(
-                        'out/results/{}_{}_selected_features_events_per_window_windowsize_{}_{}.csv'.format(
-                            classifier_type, classifier_mode, window_size, scenario
-                            ), index=True, header=['selected_features']
-                        )
+                if max_features is not None:
+                    selected_features.to_csv(
+                            'out/results/{}_{}_selected_features_events_per_window_windowsize_{}_{}.csv'.format(
+                                classifier_type, classifier_mode, window_size, scenario
+                                ), index=True, header=['selected_features']
+                            )
 
                 results.to_csv(
                         'out/results/{}_{}_pred_results_events_per_window_windowsize_{}_{}.csv'.format(
@@ -259,11 +283,12 @@ def do_events_sliding_window_classification(window_sizes, classifier_type, class
             print('window size: {}s'.format(window_size))
 
             results, selected_features = clf.do_classification(can_data_events_per_window)
-            selected_features.to_csv(
-                    'out/results/{}_{}_selected_features_events_per_window_windowsize_{}.csv'.format(
-                        classifier_type, classifier_mode, window_size
-                        ), index=True, header=['selected_features']
-                    )
+            if max_features is not None:
+                selected_features.to_csv(
+                        'out/results/{}_{}_selected_features_events_per_window_windowsize_{}.csv'.format(
+                            classifier_type, classifier_mode, window_size
+                            ), index=True, header=['selected_features']
+                        )
 
             results.to_csv(
                     'out/results/{}_{}_pred_results_events_per_window_windowsize_{}.csv'.format(
@@ -298,7 +323,8 @@ def do_combined_classification(window_sizes, classifier_type, classifier_mode, p
             if classifier_type == 'log_regression':
                 can_data_combined.dropna(axis=1, inplace=True)
 
-            clf = Classifier(classifier_type, classifier_mode, max_features=50)
+            max_features = 50
+            clf = Classifier(classifier_type, classifier_mode, max_features=max_features)
             if per_scenario:
                 for scenario in SCENARIOS:
                     print('signals: {}, window size: {}s, scenario: {}'.format(
@@ -308,11 +334,12 @@ def do_combined_classification(window_sizes, classifier_type, classifier_mode, p
                     can_data_combined_scenario = can_data_combined.loc[:, :, scenario, :]
 
                     results, selected_features = clf.do_classification(can_data_combined_scenario, scenario)
-                    selected_features.to_csv(
-                            'out/results/{}_{}_selected_features_combined_windowsize_{}{}_{}.csv'.format(
-                                classifier_type, classifier_mode, window_size, signal_string, scenario
-                                ), index=True, header=['selected_features']
-                            )
+                    if max_features is not None:
+                        selected_features.to_csv(
+                                'out/results/{}_{}_selected_features_combined_windowsize_{}{}_{}.csv'.format(
+                                    classifier_type, classifier_mode, window_size, signal_string, scenario
+                                    ), index=True, header=['selected_features']
+                                )
 
                     results.to_csv(
                             'out/results/{}_{}_pred_results_combined_windowsize_{}{}_{}.csv'.format(
@@ -323,11 +350,12 @@ def do_combined_classification(window_sizes, classifier_type, classifier_mode, p
                 print('signals: {}, window size: {}s'.format(signal_string, window_size))
                 
                 results, selected_features = clf.do_classification(can_data_combined_scenario, scenario)
-                selected_features.to_csv(
-                        'out/results/{}_{}_selected_features_combined_windowsize_{}{}.csv'.format(
-                            classifier_type, classifier_mode, window_size, signal_string
-                            ), index=True, header=['selected_features']
-                        )
+                if max_features is not None:
+                    selected_features.to_csv(
+                            'out/results/{}_{}_selected_features_combined_windowsize_{}{}.csv'.format(
+                                classifier_type, classifier_mode, window_size, signal_string
+                                ), index=True, header=['selected_features']
+                            )
 
                 results.to_csv(
                         'out/results/{}_{}_pred_results_combined_windowsize_{}{}.csv'.format(

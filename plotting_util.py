@@ -55,8 +55,7 @@ def set_ax_yticks(ax, yticks, ylabels, rotation=0):
     ax.set_yticks(yticks, ylabels, rotation=rotation, fontsize=14)
     
 def set_ax_ticks_size(ax, size=14):
-    ax.set_xticks(fontsize=size)
-    ax.set_yticks(fontsize=size)
+    ax.tick_params(labelsize=size)
     
 def set_ax_visible_spines(ax, top=True, right=True, bottom=True, left=True):
     ax.spines['top'].set_visible(top)
