@@ -91,7 +91,7 @@ def do_sliding_window_classification(window_sizes, classifier_type, classifier_m
             if classifier_type == 'log_regression':
                 can_data_features.dropna(axis=1, inplace=True)
 
-            max_features = 40
+            max_features = 50
             clf = Classifier(classifier_type, classifier_mode, max_features=max_features)
             if per_scenario:
                 for scenario in SCENARIOS:
