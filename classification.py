@@ -58,7 +58,8 @@ SELECTED_SIGNALS_ESW = {
     ],
     'vehicle_behavior': [
         'acc',
-        'velocity'
+        'velocity',
+        'latvel_acc'
     ],
     'navi': [
         'SpeedDif',
