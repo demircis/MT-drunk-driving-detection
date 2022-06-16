@@ -57,22 +57,27 @@ def get_segment_states(digits, smaller_dimensions):
             x = x - (standard_w - w)
             w = standard_w
         digit_rect = digit[y:y + h, x:x + w]
-        (segment_w, segment_h) = (2, 2) if smaller_dimensions else (3, 3)
+        segment_w = 3
+        segment_h = 3
+        if smaller_dimensions:
+            segment_w = 2
+            segment_h = 2
         segment_h_center = 1 if smaller_dimensions else 2
+        # top, top-left, top-right, center, bottom-left, bottom-right, bottom
         segments = [
-            ((1, 0), (w-1, segment_h)),	# top
-            ((0, 1), (segment_w, h // 2)),	# top-left
-            ((w - segment_w, 1), (w, h // 2)),	# top-right
-            ((1, (h // 2) - segment_h_center) , (w-1, (h // 2) + segment_h_center)), # center
-            ((0, h // 2), (segment_w, h-1)),	# bottom-left
-            ((w - segment_w, h // 2), (w, h-1)),	# bottom-right
-            ((1, h - segment_h), (w-1, h))	# bottom
+            ((1, 0), (w-1, segment_h)),
+            ((0, 1), (segment_w, h // 2)),
+            ((w - segment_w, 1), (w, h // 2)),
+            ((1, (h // 2) - segment_h_center) , (w-1, (h // 2) + segment_h_center)),
+            ((0, h // 2), (segment_w, h-1)),
+            ((w - segment_w, h // 2), (w, h-1)),
+            ((1, h - segment_h), (w-1, h))
         ]
         segment_state = np.array([0] * len(segments))
-        for j, ((xA, yA), (xB, yB)) in enumerate(segments):
-            segment = digit_rect[yA:yB, xA:xB]
+        for j, ((xStart, yStart), (xEnd, yEnd)) in enumerate(segments):
+            segment = digit_rect[yStart:yEnd, xStart:xEnd]
             total = cv.countNonZero(segment)
-            area = (xB - xA) * (yB - yA)
+            area = (xEnd - xStart) * (yEnd - yStart)
             if area == 0:
                 segment_state = np.array([0] * len(segments))
                 break

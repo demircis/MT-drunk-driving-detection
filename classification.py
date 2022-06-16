@@ -257,7 +257,7 @@ def do_events_sliding_window_classification(window_sizes, classifier_type, class
         if classifier_type == 'log_regression':
                 can_data_events_per_window.dropna(axis=1, inplace=True)
 
-        max_features = 20
+        max_features = 30
         clf = Classifier(classifier_type, classifier_mode, max_features=max_features)
         
         if per_scenario:
