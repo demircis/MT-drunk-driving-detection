@@ -9,6 +9,7 @@ from lightgbm import LGBMClassifier
 from mlxtend.feature_selection import SequentialFeatureSelector
 from sklearn.model_selection import cross_validate
 from sklearn.model_selection import LeaveOneGroupOut
+from joblib import dump
 
 class Classifier:
     RANDOM_STATE = 42
@@ -41,7 +42,7 @@ class Classifier:
                 raise ValueError('Received unknown classifier string!')
     
 
-    def do_classification(self, data, scenario=None):                
+    def do_classification(self, data, scenario=None, save_estimators=False):                
         X, y, weights, groups = self.prepare_dataset(data, scenario)
         
         subject_ids = np.unique(groups)
@@ -55,6 +56,13 @@ class Classifier:
 
         cv = cross_validate(estimator=self.estimator, X=best_X, y=y, scoring=self.SCORING, return_estimator=True, verbose=0,
                 return_train_score=True, cv=self.LOGO, groups=groups, n_jobs=len(subject_ids)-1, fit_params={'sample_weight': weights})
+
+        if save_estimators:
+            for i, subject_id in enumerate(subject_ids):
+                scen = ''
+                if scenario is not None:
+                    scen = '_' + scenario
+                dump(cv['estimator'][i], 'out/estimators/{}_{}{}.joblib'.format(subject_id, self.classifier_type, scen))
         
         results = self.collect_results(cv, subject_ids)
         return results, selected_features
