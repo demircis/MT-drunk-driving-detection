@@ -1,0 +1,208 @@
+Intel(R) Extension for Scikit-learn* enabled (https://github.com/intel/scikit-learn-intelex)
+window size: 120s
+[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   35.8s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  1.6min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  3.3min
+[Parallel(n_jobs=30)]: Done 710 out of 710 | elapsed:  4.0min finished
+
+[2022-06-16 15:51:06] Features: 1/30 -- score: 0.576457889525135[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   29.3s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  1.3min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  2.6min
+[Parallel(n_jobs=30)]: Done 709 out of 709 | elapsed:  3.1min finished
+
+[2022-06-16 15:54:10] Features: 2/30 -- score: 0.5936390720028698[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   36.9s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  1.6min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  3.1min
+[Parallel(n_jobs=30)]: Done 708 out of 708 | elapsed:  3.7min finished
+
+[2022-06-16 15:57:51] Features: 3/30 -- score: 0.6073154131962193[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   43.6s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  1.9min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  3.6min
+[Parallel(n_jobs=30)]: Done 707 out of 707 | elapsed:  4.3min finished
+
+[2022-06-16 16:02:07] Features: 4/30 -- score: 0.6207318357082582[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   35.0s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  1.6min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  2.9min
+[Parallel(n_jobs=30)]: Done 706 out of 706 | elapsed:  3.5min finished
+
+[2022-06-16 16:05:37] Features: 5/30 -- score: 0.6270988035607258[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   34.9s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  1.5min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  2.8min
+[Parallel(n_jobs=30)]: Done 705 out of 705 | elapsed:  3.4min finished
+
+[2022-06-16 16:08:59] Features: 6/30 -- score: 0.6328611633055474[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   35.4s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  1.6min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  3.0min
+[Parallel(n_jobs=30)]: Done 704 out of 704 | elapsed:  3.5min finished
+
+[2022-06-16 16:12:31] Features: 7/30 -- score: 0.6364999282776216[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   37.3s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  1.6min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  3.1min
+[Parallel(n_jobs=30)]: Done 703 out of 703 | elapsed:  3.6min finished
+
+[2022-06-16 16:16:09] Features: 8/30 -- score: 0.6384938551558619[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   40.8s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  1.8min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  3.4min
+[Parallel(n_jobs=30)]: Done 702 out of 702 | elapsed:  4.0min finished
+
+[2022-06-16 16:20:08] Features: 9/30 -- score: 0.6410342431740711[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   41.9s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  1.8min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  3.5min
+[Parallel(n_jobs=30)]: Done 701 out of 701 | elapsed:  4.1min finished
+
+[2022-06-16 16:24:14] Features: 10/30 -- score: 0.642405487449537[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   43.9s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  2.0min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  3.7min
+[Parallel(n_jobs=30)]: Done 700 out of 700 | elapsed:  4.3min finished
+
+[2022-06-16 16:28:34] Features: 11/30 -- score: 0.6448993353900297[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   44.7s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  2.0min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  3.7min
+[Parallel(n_jobs=30)]: Done 699 out of 699 | elapsed:  4.3min finished
+
+[2022-06-16 16:32:55] Features: 12/30 -- score: 0.6485058331001762[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   46.0s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  2.1min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  3.8min
+[Parallel(n_jobs=30)]: Done 698 out of 698 | elapsed:  4.5min finished
+
+[2022-06-16 16:37:25] Features: 13/30 -- score: 0.6506691922421518[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   47.7s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  2.0min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  3.8min
+[Parallel(n_jobs=30)]: Done 697 out of 697 | elapsed:  4.4min finished
+
+[2022-06-16 16:41:51] Features: 14/30 -- score: 0.6531132681192002[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   47.5s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  2.0min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  3.8min
+[Parallel(n_jobs=30)]: Done 696 out of 696 | elapsed:  4.5min finished
+
+[2022-06-16 16:46:21] Features: 15/30 -- score: 0.6553445640103527[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   48.3s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  2.1min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  4.0min
+[Parallel(n_jobs=30)]: Done 695 out of 695 | elapsed:  4.6min finished
+
+[2022-06-16 16:50:58] Features: 16/30 -- score: 0.6572704467012491[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   50.0s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  2.1min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  4.0min
+[Parallel(n_jobs=30)]: Done 694 out of 694 | elapsed:  4.7min finished
+
+[2022-06-16 16:55:40] Features: 17/30 -- score: 0.6576718681848671[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   51.2s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  2.2min
+/local/home/demircis/anaconda3/envs/DRIVE-venv/lib/python3.9/site-packages/joblib/externals/loky/process_executor.py:702: UserWarning: A worker stopped while some jobs were given to the executor. This can be caused by a too short worker timeout or by a memory leak.
+  warnings.warn(
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  4.1min
+[Parallel(n_jobs=30)]: Done 693 out of 693 | elapsed:  4.8min finished
+
+[2022-06-16 17:00:29] Features: 18/30 -- score: 0.6591828377416702[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   51.1s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  2.1min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  4.1min
+[Parallel(n_jobs=30)]: Done 692 out of 692 | elapsed:  4.7min finished
+
+[2022-06-16 17:05:12] Features: 19/30 -- score: 0.6606392793675356[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   52.1s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  2.2min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  4.1min
+[Parallel(n_jobs=30)]: Done 691 out of 691 | elapsed:  4.8min finished
+
+[2022-06-16 17:10:02] Features: 20/30 -- score: 0.663913517587054[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   54.0s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  2.3min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  4.3min
+[Parallel(n_jobs=30)]: Done 690 out of 690 | elapsed:  5.0min finished
+
+[2022-06-16 17:15:02] Features: 21/30 -- score: 0.6650699413988032[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   56.1s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  2.4min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  4.6min
+[Parallel(n_jobs=30)]: Done 689 out of 689 | elapsed:  5.4min finished
+
+[2022-06-16 17:20:26] Features: 22/30 -- score: 0.6657502876513993[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:   59.3s
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  2.5min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  4.8min
+[Parallel(n_jobs=30)]: Done 688 out of 688 | elapsed:  5.6min finished
+
+[2022-06-16 17:26:04] Features: 23/30 -- score: 0.6659404950713992[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:  1.0min
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  2.6min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  5.1min
+[Parallel(n_jobs=30)]: Done 687 out of 687 | elapsed:  5.9min finished
+
+[2022-06-16 17:31:58] Features: 24/30 -- score: 0.6666199149168334[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:  1.1min
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  2.8min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  5.2min
+[Parallel(n_jobs=30)]: Done 686 out of 686 | elapsed:  6.0min finished
+
+[2022-06-16 17:37:57] Features: 25/30 -- score: 0.6666504195534569[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:  1.1min
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  2.7min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  5.3min
+[Parallel(n_jobs=30)]: Done 685 out of 685 | elapsed:  6.0min finished
+
+[2022-06-16 17:44:01] Features: 26/30 -- score: 0.6672023322646962[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:  1.1min
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  2.8min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  5.4min
+[Parallel(n_jobs=30)]: Done 684 out of 684 | elapsed:  6.2min finished
+
+[2022-06-16 17:50:14] Features: 27/30 -- score: 0.6672023322646962[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:  1.1min
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  2.8min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  5.3min
+[Parallel(n_jobs=30)]: Done 683 out of 683 | elapsed:  6.1min finished
+
+[2022-06-16 17:56:22] Features: 28/30 -- score: 0.6672023322646962[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:  1.1min
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  2.8min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  5.4min
+[Parallel(n_jobs=30)]: Done 682 out of 682 | elapsed:  6.2min finished
+
+[2022-06-16 18:02:35] Features: 29/30 -- score: 0.6672023322646962[Parallel(n_jobs=30)]: Using backend LokyBackend with 30 concurrent workers.
+[Parallel(n_jobs=30)]: Done 102 tasks      | elapsed:  1.1min
+[Parallel(n_jobs=30)]: Done 305 tasks      | elapsed:  2.9min
+[Parallel(n_jobs=30)]: Done 588 tasks      | elapsed:  5.4min
+[Parallel(n_jobs=30)]: Done 681 out of 681 | elapsed:  6.3min finished
+
+[2022-06-16 18:08:51] Features: 30/30 -- score: 0.6672023322646962
+best score (with 26 features): 0.6672023322646962
+['brake_to_gas_event_turn_angle_iqrange-mean'
+ 'brake_to_gas_event_turn_angle_peaks-mean'
+ 'brake_to_gas_event_lane_position_peaks-mean' 'gas_event_ratio'
+ 'gas_event_duration-mean' 'gas_event_gas_max-mean'
+ 'gas_event_gas_kurtosis-mean' 'gas_event_SteerSpeed_peaks-mean'
+ 'gas_event_acc_kurtosis-mean' 'gas_event_lane_position_peaks-mean'
+ 'gas_to_brake_event_turn_angle_std-mean'
+ 'gas_to_brake_event_turn_angle_skewness-mean'
+ 'gas_to_brake_event_lane_position_peaks-mean'
+ 'overtaking_event_gas_iqrange-mean'
+ 'overtaking_event_latvel_acc_max-mean'
+ 'overtaking_event_latvel_acc_q5-mean'
+ 'overtaking_event_SpeedDif_std-mean'
+ 'overtaking_event_SpeedDif_peaks-mean'
+ 'overtaking_event_turn_angle_q5-mean'
+ 'overtaking_event_lane_position_min-mean'
+ 'road_sign_event_brake_max-mean'
+ 'road_sign_event_SteerSpeed_iqrange-mean'
+ 'road_sign_event_SteerSpeed_skewness-mean'
+ 'road_sign_event_acc_skewness-mean'
+ 'road_sign_event_latvel_acc_mean-mean'
+ 'turning_event_brake_kurtosis-mean']
